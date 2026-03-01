@@ -71,6 +71,7 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
 }) => {
     const { t } = useTranslation()
     const [query, setQuery] = useState('')
+    const lastClickedIndex = useRef<number>(-1)
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -89,7 +90,10 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
                 className="SelectSearch"
                 placeholder={t('Search')}
                 value={query}
-                onInput={e => setQuery(e.currentTarget.value)}
+                onInput={(e) => {
+                    lastClickedIndex.current = -1
+                    setQuery(e.currentTarget.value)
+                }}
             />
             <div className="SelectToolbar">
                 <CheckBox
@@ -97,6 +101,7 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
                     disabled={disabled}
                     checked={allFilteredSelected}
                     onCheckedChange={(checked) => {
+                        lastClickedIndex.current = -1
                         setSelected(checked ? filtered.slice(0, EXPORT_LIMIT) : [])
                     }}
                 />
@@ -122,13 +127,36 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
             <ul className="SelectList">
                 {loading && conversations.length === 0 && <li className="SelectItem">{t('Loading')}...</li>}
                 {error && <li className="SelectItem">{t('Error')}: {error}</li>}
-                {filtered.map((c) => {
+                {filtered.map((c, index) => {
                     const isSelected = selected.some(x => x.id === c.id)
+                    const itemDisabled = disabled || (atCap && !isSelected)
                     return (
-                        <li className="SelectItem" key={c.id}>
+                        <li
+                            className="SelectItem"
+                            key={c.id}
+                            onClickCapture={(e: MouseEvent) => {
+                                if (itemDisabled) return
+                                if (e.shiftKey && lastClickedIndex.current !== -1) {
+                                    e.preventDefault()
+                                    const start = Math.min(lastClickedIndex.current, index)
+                                    const end = Math.max(lastClickedIndex.current, index)
+                                    const rangeItems = filtered.slice(start, end + 1)
+                                    const newSelected = [...selected]
+                                    for (const item of rangeItems) {
+                                        if (!newSelected.some(x => x.id === item.id)) {
+                                            if (newSelected.length >= EXPORT_LIMIT) break
+                                            newSelected.push(item)
+                                        }
+                                    }
+                                    setSelected(newSelected)
+                                    return
+                                }
+                                lastClickedIndex.current = index
+                            }}
+                        >
                             <CheckBox
                                 label={c.title}
-                                disabled={disabled || (atCap && !isSelected)}
+                                disabled={itemDisabled}
                                 checked={isSelected}
                                 onCheckedChange={(checked) => {
                                     if (checked && atCap) return
