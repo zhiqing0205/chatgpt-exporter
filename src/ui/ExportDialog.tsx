@@ -77,10 +77,9 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
                 />
             </div>
             <ul className="SelectList">
-                {loading && <li className="SelectItem">{t('Loading')}...</li>}
+                {loading && conversations.length === 0 && <li className="SelectItem">{t('Loading')}...</li>}
                 {error && <li className="SelectItem">{t('Error')}: {error}</li>}
-                {!loading && !error
-                && conversations.map(c => (
+                {conversations.map(c => (
                     <li className="SelectItem" key={c.id}>
                         <CheckBox
                             label={c.title}
@@ -95,6 +94,9 @@ const ConversationSelect: FC<ConversationSelectProps> = ({
                         />
                     </li>
                 ))}
+                {loading && conversations.length > 0 && (
+                    <li className="SelectItem" style={{ opacity: 0.5, fontStyle: 'italic' }}>{t('Loading')}...</li>
+                )}
             </ul>
         </>
     )
@@ -131,7 +133,7 @@ const DialogContent: FC<DialogContentProps> = ({ format }) => {
 
     const [selected, setSelected] = useState<ApiConversationItem[]>([])
     const [exportType, setExportType] = useState(exportAllOptions[0].label)
-    const disabled = loading || processing || !!error || selected.length === 0
+    const disabled = processing || !!error || selected.length === 0
 
     const requestQueue = useMemo(() => new RequestQueue<ApiConversationWithId>(200, 1600), [])
     const archiveQueue = useMemo(() => new RequestQueue<boolean>(200, 1600), [])
@@ -295,9 +297,13 @@ const DialogContent: FC<DialogContentProps> = ({ format }) => {
     }, [])
 
     useEffect(() => {
+        setApiConversations([])
         setLoading(true)
-        fetchAllConversations(selectedProject?.id, exportAllLimit)
-            .then(setApiConversations)
+        fetchAllConversations(
+            selectedProject?.id,
+            exportAllLimit,
+            batch => setApiConversations(prev => [...prev, ...batch]),
+        )
             .catch((err) => {
                 console.error('Error fetching conversations:', err)
                 setError(err.message || 'Failed to load conversations')
@@ -328,7 +334,7 @@ const DialogContent: FC<DialogContentProps> = ({ format }) => {
                     {t('Export from API')}
                 </div>
             )}
-            <ProjectSelect projects={projects} selected={selectedProject} setSelected={setSelectedProject} disabled={processing || loading} />
+            <ProjectSelect projects={projects} selected={selectedProject} setSelected={setSelectedProject} disabled={processing} />
             <ConversationSelect
                 conversations={conversations}
                 selected={selected}

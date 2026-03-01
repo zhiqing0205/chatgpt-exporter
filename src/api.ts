@@ -548,7 +548,7 @@ async function fetchProjectConversations(project: string, cursor: string | numbe
     }
 }
 
-export async function fetchAllConversations(project: string | null = null, maxConversations = 1000): Promise<ApiConversationItem[]> {
+export async function fetchAllConversations(project: string | null = null, maxConversations = 1000, onBatch?: (batch: ApiConversationItem[]) => void): Promise<ApiConversationItem[]> {
     const conversations: ApiConversationItem[] = []
     const limit = project === null ? 100 : 50 // gizmos api uses a smaller limit
     let offset = 0
@@ -565,6 +565,7 @@ export async function fetchAllConversations(project: string | null = null, maxCo
             }
             conversations.push(...result.items)
             if (result.items.length === 0) break
+            onBatch?.(result.items)
             // Stop if the API signals no more pages (no total count and no next cursor)
             if (result.total == null && result.cursor == null) break
             // Stop if we've reached the total reported by the API OR the user-defined limit
