@@ -3,7 +3,7 @@
 // @name:zh-CN         ChatGPT Exporter
 // @name:zh-TW         ChatGPT Exporter
 // @namespace          pionxzh
-// @version            2.29.5
+// @version            2.30.0
 // @author             pionxzh
 // @description        Easily export the whole ChatGPT conversation history for further analysis or sharing.
 // @description:zh-CN  轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。
@@ -307,8 +307,26 @@ html {
     background-color: #f9d9d9;
     color: #a71d2a;
 }
+.Button.neutral {
+    background-color: transparent;
+    color: #6f6e77;
+    border: 1px solid #6f6e77;
+    font-size: 13px;
+    height: 26px;
+    padding: 0 8px;
+}
 .Button.green:hover {
     background-color: #ccebd7;
+}
+.Button.neutral:hover {
+    background-color: rgba(111, 110, 119, 0.1);
+}
+.dark .Button.neutral {
+    color: #a0a0a8;
+    border-color: #a0a0a8;
+}
+.dark .Button.neutral:hover {
+    background-color: rgba(160, 160, 168, 0.1);
 }
 .Button:disabled {
     opacity: 0.5;
@@ -392,11 +410,26 @@ html {
     color: #bcbcbc;
 }
 
+.SelectSearch {
+    width: 100%;
+    padding: 8px 16px;
+    border: 1px solid #6f6e77;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    background-color: transparent;
+    color: inherit;
+    font-size: 14px;
+    outline: none;
+}
+.SelectSearch::placeholder {
+    color: #9ca3af;
+}
+
 .SelectToolbar {
     display: flex;
     align-items: center;
     padding: 12px 16px;
-    border-radius: 4px 4px 0 0;
+    border-radius: 0;
     border: 1px solid #6f6e77;
     border-bottom: none;
 }
@@ -1186,7 +1219,7 @@ html {
   const conversationsApi = (offset, limit) => _default(apiUrl, "/conversations", { offset, limit });
   const fileDownloadApi = (id) => _default(apiUrl, "/files/download/:id", { id, post_id: "", inline: false });
   const projectsApi = (cursor) => _default(apiUrl, "/gizmos/snorlax/sidebar", { conversations_per_gizmo: 0, cursor });
-  const projectConversationsApi = (gizmo, offset, limit) => _default(apiUrl, "/gizmos/:gizmo/conversations", { gizmo, cursor: offset, limit });
+  const projectConversationsApi = (gizmo, cursor, limit) => _default(apiUrl, "/gizmos/:gizmo/conversations", { gizmo, cursor, limit });
   const accountsCheckApi = _default(apiUrl, "/accounts/check/v4-2023-04-27");
   async function getCurrentChatId() {
     if (isSharePage()) {
@@ -1286,33 +1319,41 @@ html {
     const url = conversationsApi(offset, limit);
     return fetchApi(url);
   }
-  async function fetchProjectConversations(project, offset = 0, limit = 20) {
-    const url = projectConversationsApi(project, offset, limit);
-    const { items } = await fetchApi(url);
+  async function fetchProjectConversations(project, cursor = 0, limit = 20) {
+    const url = projectConversationsApi(project, cursor, limit);
+    const { items, cursor: nextCursor } = await fetchApi(url);
     return {
       has_missing_conversations: false,
       items,
       limit,
-      offset,
-      total: null
+      offset: typeof cursor === "number" ? cursor : 0,
+      total: null,
+      cursor: nextCursor ?? null
     };
   }
-  async function fetchAllConversations(project = null, maxConversations = 1e3) {
+  async function fetchAllConversations(project = null, maxConversations = 1e3, onBatch) {
     const conversations = [];
     const limit = project === null ? 100 : 50;
     let offset = 0;
+    let cursor = 0;
     while (true) {
       try {
-        const result = project === null ? await fetchConversations(offset, limit) : await fetchProjectConversations(project, offset, limit);
+        const result = project === null ? await fetchConversations(offset, limit) : await fetchProjectConversations(project, cursor, limit);
         if (!result.items) {
           console.warn("fetchAllConversations received no items at offset:", offset);
           break;
         }
         conversations.push(...result.items);
         if (result.items.length === 0) break;
+        onBatch == null ? void 0 : onBatch(result.items);
+        if (result.total == null && result.cursor == null) break;
         if (result.total !== null && offset + limit >= result.total) break;
         if (conversations.length >= maxConversations) break;
-        offset += limit;
+        if (result.cursor != null) {
+          cursor = result.cursor;
+        } else {
+          offset += limit;
+        }
       } catch (error2) {
         console.error("Error fetching conversations batch:", error2);
         break;
@@ -8120,6 +8161,7 @@ html {
   const Export$8 = "Export";
   const Loading$8 = "Loading";
   const Preview$8 = "Preview";
+  const Search$8 = "Search";
   const en_US = {
     title: title$8,
     ExportHelper: ExportHelper$8,
@@ -8164,7 +8206,11 @@ html {
     "Select Project": "Select Project",
     "(no project)": "(no project)",
     "Export All Limit": "Export All Limit",
-    "Export All Limit Description": "Set the maximum number of conversations to load in the 'Export All' dialog."
+    "Export All Limit Description": "Set the maximum number of conversations to load in the 'Export All' dialog.",
+    "Select a source to load conversations": "Select a project above to load conversations.",
+    Search: Search$8,
+    "Last 100": "Last 100",
+    "No results": "No results"
   };
   const title$7 = "ChatGPT Exporter";
   const ExportHelper$7 = "Exportar";
@@ -8179,6 +8225,7 @@ html {
   const Export$7 = "Exportar";
   const Loading$7 = "Cargando";
   const Preview$7 = "Previsualizar";
+  const Search$7 = "Buscar";
   const es = {
     title: title$7,
     ExportHelper: ExportHelper$7,
@@ -8223,7 +8270,11 @@ html {
     "Select Project": "Seleccionar proyecto",
     "(no project)": "(sin proyecto)",
     "Export All Limit": "Límite de Exportar Todos",
-    "Export All Limit Description": "Establece el número máximo de conversaciones a cargar en el diálogo 'Exportar Todos'."
+    "Export All Limit Description": "Establece el número máximo de conversaciones a cargar en el diálogo 'Exportar Todos'.",
+    "Select a source to load conversations": "Selecciona un proyecto arriba para cargar conversaciones.",
+    Search: Search$7,
+    "Last 100": "Últimas 100",
+    "No results": "Sin resultados"
   };
   const title$6 = "Exportateur ChatGPT";
   const ExportHelper$6 = "Exporter";
@@ -8238,6 +8289,7 @@ html {
   const Export$6 = "Exporter";
   const Loading$6 = "Chargement";
   const Preview$6 = "Aperçu";
+  const Search$6 = "Rechercher";
   const fr = {
     title: title$6,
     ExportHelper: ExportHelper$6,
@@ -8282,7 +8334,11 @@ html {
     "Select Project": "Sélectionner un projet",
     "(no project)": "(aucun projet)",
     "Export All Limit": "Limite d'Exportation Multiple",
-    "Export All Limit Description": "Définit le nombre maximal de conversations à charger dans la boîte de dialogue 'Tout exporter'."
+    "Export All Limit Description": "Définit le nombre maximal de conversations à charger dans la boîte de dialogue 'Tout exporter'.",
+    "Select a source to load conversations": "Sélectionnez un projet ci-dessus pour charger les conversations.",
+    Search: Search$6,
+    "Last 100": "100 dernières",
+    "No results": "Aucun résultat"
   };
   const title$5 = "ChatGPT Exporter";
   const ExportHelper$5 = "Ekspor";
@@ -8297,6 +8353,7 @@ html {
   const Export$5 = "Ekspor";
   const Loading$5 = "Memuat";
   const Preview$5 = "Pratinjau";
+  const Search$5 = "Cari";
   const id_ID = {
     title: title$5,
     ExportHelper: ExportHelper$5,
@@ -8341,7 +8398,11 @@ html {
     "Select Project": "Pilih Proyek",
     "(no project)": "(tidak ada proyek)",
     "Export All Limit": "Batas Ekspor Semua",
-    "Export All Limit Description": "Atur jumlah maksimum percakapan yang akan dimuat dalam dialog 'Ekspor Semua'."
+    "Export All Limit Description": "Atur jumlah maksimum percakapan yang akan dimuat dalam dialog 'Ekspor Semua'.",
+    "Select a source to load conversations": "Pilih proyek di atas untuk memuat percakapan.",
+    Search: Search$5,
+    "Last 100": "100 Terakhir",
+    "No results": "Tidak ada hasil"
   };
   const title$4 = "ChatGPTエクスポーター";
   const ExportHelper$4 = "エクスポート";
@@ -8356,6 +8417,7 @@ html {
   const Export$4 = "エクスポート";
   const Loading$4 = "読み込み中";
   const Preview$4 = "プレビュー";
+  const Search$4 = "検索";
   const ja_JP = {
     title: title$4,
     ExportHelper: ExportHelper$4,
@@ -8400,7 +8462,11 @@ html {
     "Select Project": "プロジェクトを選択",
     "(no project)": "（プロジェクトなし）",
     "Export All Limit": "すべてエクスポートの上限",
-    "Export All Limit Description": "「すべてエクスポート」ダイアログで読み込む会話の最大数を設定します。"
+    "Export All Limit Description": "「すべてエクスポート」ダイアログで読み込む会話の最大数を設定します。",
+    "Select a source to load conversations": "上からプロジェクトを選択して会話を読み込んでください。",
+    Search: Search$4,
+    "Last 100": "最新100件",
+    "No results": "結果なし"
   };
   const title$3 = "ChatGPT Exporter";
   const ExportHelper$3 = "Export";
@@ -8415,6 +8481,7 @@ html {
   const Export$3 = "Экспорт";
   const Loading$3 = "Загрузка";
   const Preview$3 = "Предпросмотр";
+  const Search$3 = "Поиск";
   const ru = {
     title: title$3,
     ExportHelper: ExportHelper$3,
@@ -8459,7 +8526,11 @@ html {
     "Select Project": "Выберите проект",
     "(no project)": "(нет проекта)",
     "Export All Limit": "Лимит экспорта всех",
-    "Export All Limit Description": "Установите максимальное количество бесед для загрузки в диалоге 'Экспортировать все'."
+    "Export All Limit Description": "Установите максимальное количество бесед для загрузки в диалоге 'Экспортировать все'.",
+    "Select a source to load conversations": "Выберите проект выше, чтобы загрузить беседы.",
+    Search: Search$3,
+    "Last 100": "Последние 100",
+    "No results": "Нет результатов"
   };
   const title$2 = "ChatGPT Exporter";
   const ExportHelper$2 = "Dışa Aktar";
@@ -8474,6 +8545,7 @@ html {
   const Export$2 = "Dışa Aktar";
   const Loading$2 = "Yükleniyor";
   const Preview$2 = "Önizleme";
+  const Search$2 = "Ara";
   const tr_TR = {
     title: title$2,
     ExportHelper: ExportHelper$2,
@@ -8518,7 +8590,11 @@ html {
     "Select Project": "Proje Seç",
     "(no project)": "(proje yok)",
     "Export All Limit": "Tümünü Dışa Aktarma Limiti",
-    "Export All Limit Description": "'Tümünü Dışa Aktar' iletişim kutusunda yüklenecek maksimum konuşma sayısını ayarlayın."
+    "Export All Limit Description": "'Tümünü Dışa Aktar' iletişim kutusunda yüklenecek maksimum konuşma sayısını ayarlayın.",
+    "Select a source to load conversations": "Konuşmaları yüklemek için yukarıdan bir proje seçin.",
+    Search: Search$2,
+    "Last 100": "Son 100",
+    "No results": "Sonuç yok"
   };
   const title$1 = "ChatGPT Exporter";
   const ExportHelper$1 = "导出助手";
@@ -8533,6 +8609,7 @@ html {
   const Export$1 = "导出";
   const Loading$1 = "加载中";
   const Preview$1 = "预览";
+  const Search$1 = "搜索";
   const zh_Hans = {
     title: title$1,
     ExportHelper: ExportHelper$1,
@@ -8577,7 +8654,11 @@ html {
     "Select Project": "选择项目",
     "(no project)": "（无项目）",
     "Export All Limit": "批量导出上限",
-    "Export All Limit Description": "设置“批量导出”对话框中加载的最大对话数量。"
+    "Export All Limit Description": "设置“批量导出”对话框中加载的最大对话数量。",
+    "Select a source to load conversations": "请在上方选择一个项目以加载对话。",
+    Search: Search$1,
+    "Last 100": "最新 100 条",
+    "No results": "无结果"
   };
   const title = "ChatGPT Exporter";
   const ExportHelper = "Export";
@@ -8592,6 +8673,7 @@ html {
   const Export = "匯出";
   const Loading = "載入中";
   const Preview = "預覽";
+  const Search = "搜尋";
   const zh_Hant = {
     title,
     ExportHelper,
@@ -8636,7 +8718,11 @@ html {
     "Select Project": "選擇專案",
     "(no project)": "（無專案）",
     "Export All Limit": "批量匯出上限",
-    "Export All Limit Description": "設定「批量匯出」對話方塊中載入的最大對話數量。"
+    "Export All Limit Description": "設定「批量匯出」對話方塊中載入的最大對話數量。",
+    "Select a source to load conversations": "請在上方選擇一個專案以載入對話。",
+    Search,
+    "Last 100": "最新 100 條",
+    "No results": "無結果"
   };
   class GMStorage {
     static get(key2) {
@@ -9647,6 +9733,15 @@ html {
     document.body.appendChild(a2);
     a2.click();
     document.body.removeChild(a2);
+  }
+  function normalizeProjectName(projectName) {
+    return projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+  function buildZipFileName(format, projectName) {
+    if (projectName) {
+      return `chatgpt-export-${format}-project-${normalizeProjectName(projectName)}.zip`;
+    }
+    return `chatgpt-export-${format}.zip`;
   }
   function getFileNameWithFormat(format, ext, {
     title: title2 = document.title,
@@ -20765,7 +20860,7 @@ html {
     downloadFile(fileName, "text/html", standardizeLineBreaks(html2));
     return true;
   }
-  async function exportAllToHtml(fileNameFormat, apiConversations, metaList) {
+  async function exportAllToHtml(fileNameFormat, apiConversations, metaList, projectName) {
     const userAvatar = await getUserAvatar();
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
@@ -20794,7 +20889,7 @@ html {
         level: 9
       }
     });
-    downloadFile("chatgpt-export-html.zip", "application/zip", blob);
+    downloadFile(buildZipFileName("html", projectName), "application/zip", blob);
     return true;
   }
   function conversationToHtml(conversation, avatar, metaList) {
@@ -21256,12 +21351,13 @@ ${content2.text}
     downloadFile(fileName, "application/json", content2);
     return true;
   }
-  async function exportAllToOfficialJson(_fileNameFormat, apiConversations) {
+  async function exportAllToOfficialJson(_fileNameFormat, apiConversations, _metaList, projectName) {
     const content2 = conversationToJson(apiConversations);
-    downloadFile("chatgpt-export.json", "application/json", content2);
+    const baseName = projectName ? `chatgpt-export-project-${normalizeProjectName(projectName)}` : "chatgpt-export";
+    downloadFile(`${baseName}.json`, "application/json", content2);
     return true;
   }
-  async function exportAllToJson(fileNameFormat, apiConversations) {
+  async function exportAllToJson(fileNameFormat, apiConversations, _metaList, projectName) {
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
     const conversations = apiConversations.map((x2) => ({
@@ -21292,7 +21388,7 @@ ${content2.text}
         level: 9
       }
     });
-    downloadFile("chatgpt-export-json.zip", "application/zip", blob);
+    downloadFile(buildZipFileName("json", projectName), "application/zip", blob);
     return true;
   }
   function conversationToJson(conversation) {
@@ -21311,7 +21407,7 @@ ${content2.text}
     downloadFile(fileName, "text/markdown", standardizeLineBreaks(markdown));
     return true;
   }
-  async function exportAllToMarkdown(fileNameFormat, apiConversations, metaList) {
+  async function exportAllToMarkdown(fileNameFormat, apiConversations, metaList, projectName) {
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
     const conversations = apiConversations.map((x2) => processConversation(x2));
@@ -21339,7 +21435,7 @@ ${content2.text}
         level: 9
       }
     });
-    downloadFile("chatgpt-export-markdown.zip", "application/zip", blob);
+    downloadFile(buildZipFileName("markdown", projectName), "application/zip", blob);
     return true;
   }
   const LatexRegex$1 = /(\s\$\$.+\$\$\s|\s\$.+\$\s|\\\[.+\\\]|\\\(.+\\\))|(^\$$[\S\s]+^\$$)|(^\$\$[\S\s]+^\$\$$)/gm;
@@ -22015,6 +22111,7 @@ ${content2}`;
   const useSettingContext = () => q$1(SettingContext);
   const ProjectSelect = ({ projects, selected, setSelected, disabled }) => {
     const { t: t2 } = useTranslation();
+    const value = selected === void 0 ? "__unselected__" : (selected == null ? void 0 : selected.id) || "";
     return /* @__PURE__ */ o$8("div", { className: "flex items-center text-gray-600 dark:text-gray-300 flex justify-between mb-3", children: [
       t2("Select Project"),
       /* @__PURE__ */ o$8(
@@ -22022,13 +22119,17 @@ ${content2}`;
         {
           disabled,
           className: "Select",
-          value: (selected == null ? void 0 : selected.id) || "",
+          value,
           onChange: (e2) => {
             const projectId = e2.currentTarget.value;
             const project = projects.find((p2) => p2.id === projectId);
             setSelected(project || null);
           },
           children: [
+            selected === void 0 && /* @__PURE__ */ o$8("option", { value: "__unselected__", disabled: true, children: [
+              t2("Select Project"),
+              "..."
+            ] }),
             /* @__PURE__ */ o$8("option", { value: "", children: t2("(no project)") }),
             projects.map((project) => /* @__PURE__ */ o$8("option", { value: project.id, children: project.display.name }, project.id))
           ]
@@ -22036,6 +22137,7 @@ ${content2}`;
       )
     ] });
   };
+  const EXPORT_LIMIT = 100;
   const ConversationSelect = ({
     conversations,
     selected,
@@ -22045,20 +22147,68 @@ ${content2}`;
     error: error2
   }) => {
     const { t: t2 } = useTranslation();
+    const [query2, setQuery] = h$4("");
+    const lastClickedIndex = _(-1);
+    const filtered = F$1(() => {
+      const q2 = query2.trim().toLowerCase();
+      if (!q2) return conversations;
+      return conversations.filter((c2) => c2.title.toLowerCase().includes(q2));
+    }, [conversations, query2]);
+    const atCap = selected.length >= EXPORT_LIMIT;
+    const allFilteredSelected = filtered.length > 0 && filtered.slice(0, EXPORT_LIMIT).every((c2) => selected.some((x2) => x2.id === c2.id));
     return /* @__PURE__ */ o$8(k$3, { children: [
-      /* @__PURE__ */ o$8("div", { className: "SelectToolbar", children: /* @__PURE__ */ o$8(
-        CheckBox,
+      /* @__PURE__ */ o$8(
+        "input",
         {
-          label: t2("Select All"),
-          disabled,
-          checked: selected.length === conversations.length,
-          onCheckedChange: (checked) => {
-            setSelected(checked ? conversations : []);
+          type: "search",
+          className: "SelectSearch",
+          placeholder: t2("Search"),
+          value: query2,
+          onInput: (e2) => {
+            lastClickedIndex.current = -1;
+            setQuery(e2.currentTarget.value);
           }
         }
-      ) }),
+      ),
+      /* @__PURE__ */ o$8("div", { className: "SelectToolbar", children: [
+        /* @__PURE__ */ o$8(
+          CheckBox,
+          {
+            label: t2("Select All"),
+            disabled,
+            checked: allFilteredSelected,
+            onCheckedChange: (checked) => {
+              lastClickedIndex.current = -1;
+              setSelected(checked ? filtered.slice(0, EXPORT_LIMIT) : []);
+            }
+          }
+        ),
+        /* @__PURE__ */ o$8("div", { className: "flex items-center gap-2 ml-auto", children: [
+          loading && conversations.length > 0 && /* @__PURE__ */ o$8("span", { className: "flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400", children: [
+            /* @__PURE__ */ o$8(IconLoading, { className: "w-3 h-3" }),
+            t2("Loading"),
+            "... (",
+            conversations.length,
+            ")"
+          ] }),
+          /* @__PURE__ */ o$8(
+            "button",
+            {
+              className: "Button neutral",
+              disabled: disabled || conversations.length === 0,
+              onClick: () => setSelected(conversations.slice(0, EXPORT_LIMIT)),
+              children: t2("Last 100")
+            }
+          ),
+          /* @__PURE__ */ o$8("span", { className: `text-sm font-medium tabular-nums ${atCap ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}`, children: [
+            selected.length,
+            "/",
+            EXPORT_LIMIT
+          ] })
+        ] })
+      ] }),
       /* @__PURE__ */ o$8("ul", { className: "SelectList", children: [
-        loading && /* @__PURE__ */ o$8("li", { className: "SelectItem", children: [
+        loading && conversations.length === 0 && /* @__PURE__ */ o$8("li", { className: "SelectItem", children: [
           t2("Loading"),
           "..."
         ] }),
@@ -22067,19 +22217,51 @@ ${content2}`;
           ": ",
           error2
         ] }),
-        !loading && !error2 && conversations.map((c2) => /* @__PURE__ */ o$8("li", { className: "SelectItem", children: /* @__PURE__ */ o$8(
-          CheckBox,
-          {
-            label: c2.title,
-            disabled,
-            checked: selected.some((x2) => x2.id === c2.id),
-            onCheckedChange: (checked) => {
-              setSelected(
-                checked ? [...selected, c2] : selected.filter((x2) => x2.id !== c2.id)
-              );
-            }
-          }
-        ) }, c2.id))
+        filtered.map((c2, index2) => {
+          const isSelected = selected.some((x2) => x2.id === c2.id);
+          const itemDisabled = disabled || atCap && !isSelected;
+          return /* @__PURE__ */ o$8(
+            "li",
+            {
+              className: "SelectItem",
+              onClickCapture: (e2) => {
+                if (itemDisabled) return;
+                if (e2.shiftKey && lastClickedIndex.current !== -1) {
+                  e2.preventDefault();
+                  const start = Math.min(lastClickedIndex.current, index2);
+                  const end = Math.max(lastClickedIndex.current, index2);
+                  const rangeItems = filtered.slice(start, end + 1);
+                  const newSelected = [...selected];
+                  for (const item of rangeItems) {
+                    if (!newSelected.some((x2) => x2.id === item.id)) {
+                      if (newSelected.length >= EXPORT_LIMIT) break;
+                      newSelected.push(item);
+                    }
+                  }
+                  setSelected(newSelected);
+                  return;
+                }
+                lastClickedIndex.current = index2;
+              },
+              children: /* @__PURE__ */ o$8(
+                CheckBox,
+                {
+                  label: c2.title,
+                  disabled: itemDisabled,
+                  checked: isSelected,
+                  onCheckedChange: (checked) => {
+                    if (checked && atCap) return;
+                    setSelected(
+                      checked ? [...selected, c2] : selected.filter((x2) => x2.id !== c2.id)
+                    );
+                  }
+                }
+              )
+            },
+            c2.id
+          );
+        }),
+        !loading && !error2 && filtered.length === 0 && conversations.length > 0 && /* @__PURE__ */ o$8("li", { className: "SelectItem text-gray-400 dark:text-gray-500", children: t2("No results") })
       ] })
     ] });
   };
@@ -22102,10 +22284,10 @@ ${content2}`;
     const [loading, setLoading] = h$4(false);
     const [error2, setError] = h$4("");
     const [processing, setProcessing] = h$4(false);
-    const [selectedProject, setSelectedProject] = h$4(null);
+    const [selectedProject, setSelectedProject] = h$4(void 0);
     const [selected, setSelected] = h$4([]);
     const [exportType, setExportType] = h$4(exportAllOptions[0].label);
-    const disabled = loading || processing || !!error2 || selected.length === 0;
+    const disabled = processing || !!error2 || selected.length === 0;
     const requestQueue = F$1(() => new RequestQueue(200, 1600), []);
     const archiveQueue = F$1(() => new RequestQueue(200, 1600), []);
     const deleteQueue = F$1(() => new RequestQueue(200, 1600), []);
@@ -22158,10 +22340,10 @@ ${content2}`;
         var _a;
         setProcessing(false);
         const callback = (_a = exportAllOptions.find((o3) => o3.label === exportType)) == null ? void 0 : _a.callback;
-        if (callback) callback(format, results, metaList);
+        if (callback) callback(format, results, metaList, selectedProject == null ? void 0 : selectedProject.display.name);
       });
       return () => off();
-    }, [requestQueue, exportAllOptions, exportType, format, metaList]);
+    }, [requestQueue, exportAllOptions, exportType, format, metaList, selectedProject]);
     p$6(() => {
       const off = archiveQueue.on("done", () => {
         setProcessing(false);
@@ -22196,7 +22378,7 @@ ${content2}`;
       if (disabled) return;
       const results = localConversations.filter((c2) => selected.some((s2) => s2.id === c2.id));
       const callback = (_a = exportAllOptions.find((o3) => o3.label === exportType)) == null ? void 0 : _a.callback;
-      if (callback) callback(format, results, metaList);
+      if (callback) callback(format, results, metaList, selectedProject == null ? void 0 : selectedProject.display.name);
     }, [
       disabled,
       selected,
@@ -22204,7 +22386,8 @@ ${content2}`;
       exportAllOptions,
       exportType,
       format,
-      metaList
+      metaList,
+      selectedProject
     ]);
     const exportAll = F$1(() => {
       return exportSource === "API" ? exportAllFromApi : exportAllFromLocal;
@@ -22239,8 +22422,15 @@ ${content2}`;
       fetchProjects().then(setProjects).catch((err) => setError(err.toString()));
     }, []);
     p$6(() => {
+      if (selectedProject === void 0) return;
+      setSelected([]);
+      setApiConversations([]);
       setLoading(true);
-      fetchAllConversations(selectedProject == null ? void 0 : selectedProject.id, exportAllLimit).then(setApiConversations).catch((err) => {
+      fetchAllConversations(
+        (selectedProject == null ? void 0 : selectedProject.id) ?? null,
+        exportAllLimit,
+        (batch) => setApiConversations((prev) => [...prev, ...batch])
+      ).catch((err) => {
         console.error("Error fetching conversations:", err);
         setError(err.message || "Failed to load conversations");
       }).finally(() => setLoading(false));
@@ -22266,8 +22456,8 @@ ${content2}`;
         }
       ),
       exportSource === "API" && /* @__PURE__ */ o$8("div", { className: "flex items-center text-gray-600 dark:text-gray-300 flex justify-between mb-3", children: t2("Export from API") }),
-      /* @__PURE__ */ o$8(ProjectSelect, { projects, selected: selectedProject, setSelected: setSelectedProject, disabled: processing || loading }),
-      /* @__PURE__ */ o$8(
+      /* @__PURE__ */ o$8(ProjectSelect, { projects, selected: selectedProject, setSelected: setSelectedProject, disabled: processing }),
+      selectedProject === void 0 ? /* @__PURE__ */ o$8("div", { className: "SelectList flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm", children: t2("Select a source to load conversations") }) : /* @__PURE__ */ o$8(
         ConversationSelect,
         {
           conversations,
@@ -22276,7 +22466,8 @@ ${content2}`;
           disabled: processing,
           loading,
           error: error2
-        }
+        },
+        (selectedProject == null ? void 0 : selectedProject.id) ?? "no-project"
       ),
       /* @__PURE__ */ o$8("div", { className: "flex mt-6", style: { justifyContent: "space-between" }, children: [
         /* @__PURE__ */ o$8("select", { className: "Select", disabled: processing, value: exportType, onChange: (e2) => setExportType(e2.currentTarget.value), children: exportAllOptions.map(({ label }) => /* @__PURE__ */ o$8("option", { value: label, children: label }, t2(label))) }),
