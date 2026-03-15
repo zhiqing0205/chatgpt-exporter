@@ -10,22 +10,31 @@ Add remote backup functionality to the ChatGPT Exporter userscript, supporting S
 
 - `src/utils/s3.ts` — S3 client with AWS Signature V4 signing, using browser-native `crypto.subtle`
 - `src/utils/webdav.ts` — WebDAV client using PUT method with Basic Auth
-- `src/utils/backup.ts` — Unified backup interface dispatching to S3 or WebDAV
+- `src/utils/backup.ts` — Unified backup interface dispatching to S3 or WebDAV, plus `buildBackupZip` helper
 
 ### Modified Files
 
+- `vite.config.ts` — Add `GM_xmlhttpRequest` grant and `@connect *` metadata
 - `src/constants.ts` — New storage keys for backup configuration
 - `src/ui/SettingContext.tsx` — Backup settings state management via `useGMStorage`
 - `src/ui/SettingDialog.tsx` — New "Remote Backup" settings section
 - `src/ui/Menu.tsx` — Last backup display and "Backup to Remote" button
 - `src/locales/en.json` — English translations
 - `src/locales/zh-Hans.json` — Chinese translations
+- Other locale files (`zh-Hant`, `es`, `fr`, `ru`, `tr`, `id`, `jp`) — Add English fallback keys
 
 ### Data Flow
 
-1. User clicks "Backup to Remote" → reuse Export All logic to fetch all conversations → package as ZIP
-2. ZIP Blob → dispatch to S3 or WebDAV client based on settings → upload via `GM_xmlhttpRequest` (bypasses CORS)
+1. User clicks "Backup to Remote" → call `buildBackupZip()` to fetch all conversations and package as ZIP Blob (no browser download triggered)
+2. ZIP Blob → convert to `ArrayBuffer` → dispatch to S3 or WebDAV client based on settings → upload via `GM_xmlhttpRequest` (bypasses CORS)
 3. On success, store current timestamp in GMStorage → Menu reads and displays relative time
+
+### Userscript Metadata Changes (`vite.config.ts`)
+
+Add to the monkey plugin `userscript` config:
+
+- `grant`: Add `GM_xmlhttpRequest` to the grant list (currently only `GM_deleteValue`, `GM_getValue`, `GM_setValue`, `unsafeWindow` are granted via vite-plugin-monkey auto-detection)
+- `connect`: Add `'*'` to allow cross-origin requests to user-configured S3/WebDAV endpoints. Since endpoints are user-configured and unknown at build time, wildcard is required. Tampermonkey will still prompt users on first request to each domain.
 
 ## Storage Keys
 
@@ -33,9 +42,10 @@ All keys defined in `src/constants.ts`:
 
 | Key | Type | Description |
 |-----|------|-------------|
+| `exporter:backup_enabled` | `boolean` | Whether remote backup is enabled |
 | `exporter:backup_method` | `'S3' \| 'WebDAV'` | Default backup method |
 | `exporter:backup_format` | `string` | Export format for backup (Markdown/HTML/JSON/JSON (ZIP)) |
-| `exporter:backup_last_time` | `number` | Unix timestamp of last successful backup |
+| `exporter:backup_last_time` | `number` | Unix timestamp (ms) of last successful backup |
 | `exporter:s3_endpoint` | `string` | S3 endpoint URL |
 | `exporter:s3_region` | `string` | S3 region |
 | `exporter:s3_bucket` | `string` | S3 bucket name |
@@ -47,15 +57,19 @@ All keys defined in `src/constants.ts`:
 | `exporter:webdav_password` | `string` | WebDAV password |
 | `exporter:webdav_path_prefix` | `string` | WebDAV upload path prefix |
 
+### Security Note
+
+Credentials (S3 Secret Key, WebDAV password) are stored in plaintext in userscript storage (via `GM_setValue`). This is consistent with the existing storage approach and is a known limitation of the userscript environment. Users should be aware that credentials are accessible to other scripts running with `GM_getValue` access in the same scope.
+
 ## Settings UI
 
 New section added after "Export Metadata" in `SettingDialog.tsx`:
 
-- Top-level Toggle to enable/expand the section
+- Top-level Toggle to enable/expand the section (persisted via `exporter:backup_enabled`)
 - **Default Method**: Dropdown selecting S3 or WebDAV
 - **Backup Format**: Dropdown selecting Markdown / HTML / JSON / JSON (ZIP)
-- **S3 Configuration**: Endpoint, Region, Bucket, Access Key, Secret Key (`type="password"`), Path Prefix
-- **WebDAV Configuration**: URL, Username, Password (`type="password"`), Path Prefix
+- **S3 Configuration**: Endpoint, Region, Bucket, Access Key, Secret Key (`type="password"`), Path Prefix — six input fields
+- **WebDAV Configuration**: URL, Username, Password (`type="password"`), Path Prefix — four input fields
 - Both config blocks are always configurable; the currently selected default method's block is shown expanded
 
 ## Main Menu UI
@@ -75,17 +89,39 @@ New row added below "Export All" in the HoverCard menu:
 
 ### Behavior
 
-- Default: displays small text "Last backup: Xm/Xh/Xd ago" (UTC+8 timezone)
+- Only shown when `backup_enabled` is true
+- Default: displays small text "Last backup: Xm/Xh/Xd ago" using local time (timezone-agnostic relative time computed as `Date.now() - lastBackupTimestamp`)
 - If never backed up: "Last backup: Never"
 - Relative time rules: <1min → "Just now", <1h → "Xm ago", <24h → "Xh ago", >=24h → "Xd ago"
 - On hover: "Backup to Remote" button appears on the right
 - Button disabled with tooltip if backup not configured (missing required S3/WebDAV fields)
-- On click: loading state → fetch all conversations → package ZIP → upload → update `backup_last_time` → success feedback
+- Button disabled while a backup is in progress (tracked via component state `backingUp`)
+- On click: button enters loading state → `buildBackupZip()` fetches all conversations and packages ZIP → upload via S3/WebDAV → update `backup_last_time` → show success feedback
 - On failure: alert error message
 
 ### ZIP Naming
 
 Format: `ChatGPT-backup-{timestamp}.zip` where timestamp is ISO-like `YYYYMMDD-HHmmss`
+
+## Backup ZIP Builder (`src/utils/backup.ts`)
+
+### `buildBackupZip`
+
+```typescript
+async function buildBackupZip(
+  format: string,
+  metaList: ExportMeta[],
+  exportAllLimit: number,
+  onProgress?: (progress: { completed: number; total: number; currentName: string }) => void,
+): Promise<Blob>
+```
+
+This function extracts the core logic from `ExportDialog` into a reusable form:
+
+1. Call `fetchAllConversations()` to get conversation list
+2. Fetch each conversation detail via `fetchConversation()` using a `RequestQueue`
+3. Based on `format`, call the appropriate export function (`exportAllToMarkdown`, `exportAllToHtml`, `exportAllToJson`, etc.) but modified to return a ZIP `Blob` instead of triggering `downloadFile()`
+4. The existing `exportAll*` functions in `src/exporter/*.ts` currently call `downloadFile()` internally. Refactor them to accept an optional parameter that returns the Blob instead of downloading. The download path remains the default behavior so existing functionality is unchanged.
 
 ## S3 Client (`src/utils/s3.ts`)
 
@@ -101,13 +137,14 @@ interface S3Config {
   pathPrefix: string
 }
 
-async function uploadToS3(config: S3Config, blob: Blob, objectKey: string): Promise<void>
+async function uploadToS3(config: S3Config, data: ArrayBuffer, objectKey: string): Promise<void>
 ```
 
 ### Implementation
 
 - AWS Signature V4 signing using `crypto.subtle` for HMAC-SHA256 and SHA256
 - Steps: Canonical Request → String to Sign → Signing Key → Signature → Authorization Header
+- Blob must be converted to `ArrayBuffer` via `blob.arrayBuffer()` before signing (SHA-256 hash of body) and uploading
 - PUT request via `GM_xmlhttpRequest` (bypasses CORS)
 - Content-Type: `application/zip`
 - Object key: `{pathPrefix}ChatGPT-backup-{timestamp}.zip`
@@ -124,11 +161,12 @@ interface WebDAVConfig {
   pathPrefix: string
 }
 
-async function uploadToWebDAV(config: WebDAVConfig, blob: Blob, fileName: string): Promise<void>
+async function uploadToWebDAV(config: WebDAVConfig, data: ArrayBuffer, fileName: string): Promise<void>
 ```
 
 ### Implementation
 
+- Blob converted to `ArrayBuffer` via `blob.arrayBuffer()` before upload
 - PUT request via `GM_xmlhttpRequest`
 - Authentication: Basic Auth (`Authorization: Basic base64(username:password)`)
 - Upload path: `{url}/{pathPrefix}ChatGPT-backup-{timestamp}.zip`
@@ -137,6 +175,10 @@ async function uploadToWebDAV(config: WebDAVConfig, blob: Blob, fileName: string
 ## Unified Backup Interface (`src/utils/backup.ts`)
 
 ```typescript
+type BackupConfig =
+  | { method: 'S3' } & S3Config
+  | { method: 'WebDAV' } & WebDAVConfig
+
 interface BackupResult {
   success: boolean
   error?: string
@@ -144,21 +186,34 @@ interface BackupResult {
 
 async function backupToRemote(
   blob: Blob,
-  method: 'S3' | 'WebDAV',
-  config: BackupConfig
+  config: BackupConfig,
 ): Promise<BackupResult>
 ```
 
-- Dispatches to S3 or WebDAV upload function based on `method`
+- Converts Blob to ArrayBuffer once
+- Dispatches to S3 or WebDAV upload function based on `config.method`
 - Unified error handling and return format
 
 ### GM_xmlhttpRequest Wrapper
 
-Shared Promise wrapper for `GM_xmlhttpRequest` callback-style API, supporting binary data (Blob) uploads.
+Shared Promise wrapper for `GM_xmlhttpRequest` callback-style API:
+
+```typescript
+function gmFetch(options: {
+  method: string
+  url: string
+  headers?: Record<string, string>
+  data?: ArrayBuffer
+}): Promise<{ status: number; responseText: string }>
+```
+
+- Wraps `GM_xmlhttpRequest` in a Promise
+- Data is passed as `ArrayBuffer` (not Blob) for cross-userscript-manager compatibility
+- Rejects on network error, resolves with status and response
 
 ## i18n Keys
 
-New translation keys for both `en.json` and `zh-Hans.json`:
+New translation keys added to `en.json` and `zh-Hans.json`. All other locale files (`zh-Hant`, `es`, `fr`, `ru`, `tr`, `id`, `jp`) will have the English strings added so that `i18next` does not fall back to raw keys.
 
 | Key | English | Chinese |
 |-----|---------|---------|
@@ -185,4 +240,5 @@ New translation keys for both `en.json` and `zh-Hans.json`:
 | {n}d ago | {n}d ago | {n}天前 |
 | Backup Success | Backup successful | 备份成功 |
 | Backup Failed | Backup failed | 备份失败 |
+| Backup in progress | Backing up... | 备份中... |
 | Please configure remote backup in settings | Please configure remote backup in settings | 请先在设置中配置远程备份 |
