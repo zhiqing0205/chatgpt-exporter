@@ -66,6 +66,9 @@ export default defineConfig({
                 ],
                 'icon': 'https://chat.openai.com/favicon.ico',
                 'run-at': 'document-end',
+                'connect': [
+                    '*',
+                ],
             },
             build: {
                 fileName: 'chatgpt.user.js',
