@@ -28,7 +28,7 @@ export async function exportToMarkdown(fileNameFormat: string, metaList: ExportM
     return true
 }
 
-export async function exportAllToMarkdown(fileNameFormat: string, apiConversations: ApiConversationWithId[], metaList?: ExportMeta[], projectName?: string) {
+export async function exportAllToMarkdown(fileNameFormat: string, apiConversations: ApiConversationWithId[], metaList?: ExportMeta[], projectName?: string, returnBlob?: boolean) {
     const zip = new JSZip()
     const filenameMap = new Map<string, number>()
     const conversations = apiConversations.map(x => processConversation(x))
@@ -58,6 +58,9 @@ export async function exportAllToMarkdown(fileNameFormat: string, apiConversatio
             level: 9,
         },
     })
+
+    if (returnBlob) return blob
+
     downloadFile(buildZipFileName('markdown', projectName), 'application/zip', blob)
 
     return true

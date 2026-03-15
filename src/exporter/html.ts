@@ -31,7 +31,7 @@ export async function exportToHtml(fileNameFormat: string, metaList: ExportMeta[
     return true
 }
 
-export async function exportAllToHtml(fileNameFormat: string, apiConversations: ApiConversationWithId[], metaList?: ExportMeta[], projectName?: string) {
+export async function exportAllToHtml(fileNameFormat: string, apiConversations: ApiConversationWithId[], metaList?: ExportMeta[], projectName?: string, returnBlob?: boolean) {
     const userAvatar = await getUserAvatar()
 
     const zip = new JSZip()
@@ -63,6 +63,9 @@ export async function exportAllToHtml(fileNameFormat: string, apiConversations: 
             level: 9,
         },
     })
+
+    if (returnBlob) return blob
+
     downloadFile(buildZipFileName('html', projectName), 'application/zip', blob)
 
     return true

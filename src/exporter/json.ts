@@ -61,8 +61,11 @@ export async function exportToOoba(fileNameFormat: string) {
     return true
 }
 
-export async function exportAllToOfficialJson(_fileNameFormat: string, apiConversations: ApiConversationWithId[], _metaList?: ExportMeta[], projectName?: string) {
+export async function exportAllToOfficialJson(_fileNameFormat: string, apiConversations: ApiConversationWithId[], _metaList?: ExportMeta[], projectName?: string, returnBlob?: boolean) {
     const content = conversationToJson(apiConversations)
+
+    if (returnBlob) return new Blob([content], { type: 'application/json' })
+
     const baseName = projectName
         ? `chatgpt-export-project-${normalizeProjectName(projectName)}`
         : 'chatgpt-export'
@@ -71,7 +74,7 @@ export async function exportAllToOfficialJson(_fileNameFormat: string, apiConver
     return true
 }
 
-export async function exportAllToJson(fileNameFormat: string, apiConversations: ApiConversationWithId[], _metaList?: ExportMeta[], projectName?: string) {
+export async function exportAllToJson(fileNameFormat: string, apiConversations: ApiConversationWithId[], _metaList?: ExportMeta[], projectName?: string, returnBlob?: boolean) {
     const zip = new JSZip()
     const filenameMap = new Map<string, number>()
     const conversations = apiConversations.map(x => ({
@@ -104,6 +107,9 @@ export async function exportAllToJson(fileNameFormat: string, apiConversations: 
             level: 9,
         },
     })
+
+    if (returnBlob) return blob
+
     downloadFile(buildZipFileName('json', projectName), 'application/zip', blob)
 
     return true
