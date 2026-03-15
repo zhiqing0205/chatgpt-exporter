@@ -36,6 +36,19 @@ export const SettingDialog: FC<SettingDialogProps> = ({
         enableMeta, setEnableMeta,
         exportMetaList, setExportMetaList,
         exportAllLimit, setExportAllLimit,
+        backupEnabled, setBackupEnabled,
+        backupMethod, setBackupMethod,
+        backupFormat, setBackupFormat,
+        s3Endpoint, setS3Endpoint,
+        s3Region, setS3Region,
+        s3Bucket, setS3Bucket,
+        s3AccessKey, setS3AccessKey,
+        s3SecretKey, setS3SecretKey,
+        s3PathPrefix, setS3PathPrefix,
+        webdavUrl, setWebdavUrl,
+        webdavUsername, setWebdavUsername,
+        webdavPassword, setWebdavPassword,
+        webdavPathPrefix, setWebdavPathPrefix,
         /* eslint-enable pionxzh/consistent-list-newline */
     } = useSettingContext()
     const { t, i18n } = useTranslation()
@@ -256,6 +269,68 @@ export const SettingDialog: FC<SettingDialogProps> = ({
                             </div>
                             <div className="absolute right-4">
                                 <Toggle label="" checked={enableMeta} onCheckedUpdate={setEnableMeta} />
+                            </div>
+                        </div>
+                        <div className="relative flex bg-white dark:bg-white/5 rounded p-4">
+                            <div className="w-full">
+                                <dt className="text-md font-medium text-gray-800 dark:text-white">
+                                    {t('Remote Backup')}
+                                </dt>
+                                <dd className="text-sm text-gray-700 dark:text-gray-300">
+                                    {backupEnabled && (
+                                        <>
+                                            <div className="mt-3">
+                                                <label className="block text-sm font-medium mb-1">{t('Backup Method')}</label>
+                                                <select
+                                                    className="Select"
+                                                    value={backupMethod}
+                                                    onChange={e => setBackupMethod(e.currentTarget.value as 'S3' | 'WebDAV')}
+                                                >
+                                                    <option value="S3">S3</option>
+                                                    <option value="WebDAV">WebDAV</option>
+                                                </select>
+                                            </div>
+                                            <div className="mt-3">
+                                                <label className="block text-sm font-medium mb-1">{t('Backup Format')}</label>
+                                                <select
+                                                    className="Select"
+                                                    value={backupFormat}
+                                                    onChange={e => setBackupFormat(e.currentTarget.value)}
+                                                >
+                                                    <option value="Markdown">Markdown</option>
+                                                    <option value="HTML">HTML</option>
+                                                    <option value="JSON">JSON</option>
+                                                    <option value="JSON (ZIP)">JSON (ZIP)</option>
+                                                </select>
+                                            </div>
+
+                                            <div className={`mt-4 p-3 border rounded ${backupMethod === 'S3' ? 'border-blue-300 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700 opacity-60'}`}>
+                                                <div className="text-sm font-medium mb-2">{t('S3 Configuration')}</div>
+                                                <div className="space-y-2">
+                                                    <input className="Input" placeholder={t('Endpoint')} value={s3Endpoint} onChange={e => setS3Endpoint(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Region')} value={s3Region} onChange={e => setS3Region(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Bucket')} value={s3Bucket} onChange={e => setS3Bucket(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Access Key')} value={s3AccessKey} onChange={e => setS3AccessKey(e.currentTarget.value)} />
+                                                    <input className="Input" type="password" placeholder={t('Secret Key')} value={s3SecretKey} onChange={e => setS3SecretKey(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Path Prefix')} value={s3PathPrefix} onChange={e => setS3PathPrefix(e.currentTarget.value)} />
+                                                </div>
+                                            </div>
+
+                                            <div className={`mt-3 p-3 border rounded ${backupMethod === 'WebDAV' ? 'border-blue-300 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700 opacity-60'}`}>
+                                                <div className="text-sm font-medium mb-2">{t('WebDAV Configuration')}</div>
+                                                <div className="space-y-2">
+                                                    <input className="Input" placeholder={t('WebDAV URL')} value={webdavUrl} onChange={e => setWebdavUrl(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Username')} value={webdavUsername} onChange={e => setWebdavUsername(e.currentTarget.value)} />
+                                                    <input className="Input" type="password" placeholder={t('Password')} value={webdavPassword} onChange={e => setWebdavPassword(e.currentTarget.value)} />
+                                                    <input className="Input" placeholder={t('Path Prefix')} value={webdavPathPrefix} onChange={e => setWebdavPathPrefix(e.currentTarget.value)} />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </dd>
+                            </div>
+                            <div className="absolute right-4">
+                                <Toggle label="" checked={backupEnabled} onCheckedUpdate={setBackupEnabled} />
                             </div>
                         </div>
                     </dl>
