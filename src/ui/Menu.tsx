@@ -16,6 +16,7 @@ import { FileCode, IconArrowRightFromBracket, IconCamera, IconCopy, IconJSON, Ic
 import { MenuItem } from './MenuItem'
 import { SettingProvider, useSettingContext } from './SettingContext'
 import { SettingDialog } from './SettingDialog'
+import { ToastContainer, showToast } from './Toast'
 
 import '../style.css'
 import './Dialog.css'
@@ -65,7 +66,6 @@ function MenuInner({ container }: { container: HTMLDivElement }) {
     const metaList = useMemo(() => enableMeta ? exportMetaList : [], [enableMeta, exportMetaList])
 
     const [backingUp, setBackingUp] = useState(false)
-    const [backupHover, setBackupHover] = useState(false)
 
     const backupConfigured = useMemo(() => {
         if (backupMethod === 'S3') {
@@ -97,14 +97,14 @@ function MenuInner({ container }: { container: HTMLDivElement }) {
             const result = await backupToRemote(blob, config)
             if (result.success) {
                 setBackupLastTime(Date.now())
-                alert(t('Backup Success'))
+                showToast(t('Backup Success'), 'success')
             }
             else {
-                alert(`${t('Backup Failed')}: ${result.error}`)
+                showToast(`${t('Backup Failed')}: ${result.error}`, 'error')
             }
         }
         catch (error) {
-            alert(`${t('Backup Failed')}: ${error instanceof Error ? error.message : String(error)}`)
+            showToast(`${t('Backup Failed')}: ${error instanceof Error ? error.message : String(error)}`, 'error')
         }
         finally {
             setBackingUp(false)
@@ -293,26 +293,6 @@ function MenuInner({ container }: { container: HTMLDivElement }) {
                             </div>
                         </ExportDialog>
 
-                        {backupEnabled && (
-                            <div
-                                className="row-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
-                                onMouseEnter={() => setBackupHover(true)}
-                                onMouseLeave={() => setBackupHover(false)}
-                            >
-                                <span>{t('Last Backup')}: {relativeTime}</span>
-                                {(backupHover || isMobile) && (
-                                    <button
-                                        className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        disabled={backingUp || !backupConfigured}
-                                        title={!backupConfigured ? t('Please configure remote backup in settings') : ''}
-                                        onClick={onClickBackup}
-                                    >
-                                        {backingUp ? t('Backup in progress') : t('Backup to Remote')}
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
                         {!isMobile && (
                             <HoverCard.Arrow
                                 width="16"
@@ -327,6 +307,22 @@ function MenuInner({ container }: { container: HTMLDivElement }) {
                     </HoverCard.Content>
                 </Portal>
             </HoverCard.Root>
+            {backupEnabled && (
+                <div
+                    className="flex items-center justify-between mt-1 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 rounded-lg"
+                    style={{ minHeight: 32 }}
+                >
+                    <span>{t('Last Backup')}: {relativeTime}</span>
+                    <button
+                        className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        disabled={backingUp || !backupConfigured}
+                        title={!backupConfigured ? t('Please configure remote backup in settings') : ''}
+                        onClick={onClickBackup}
+                    >
+                        {backingUp ? t('Backup in progress') : t('Backup to Remote')}
+                    </button>
+                </div>
+            )}
             <Divider />
         </>
     )
@@ -336,6 +332,7 @@ export function Menu({ container }: { container: HTMLDivElement }) {
     return (
         <SettingProvider>
             <MenuInner container={container} />
+            <ToastContainer />
         </SettingProvider>
     )
 }
