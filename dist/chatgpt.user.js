@@ -3,7 +3,7 @@
 // @name:zh-CN         ChatGPT Exporter
 // @name:zh-TW         ChatGPT Exporter
 // @namespace          pionxzh
-// @version            2.30.0
+// @version            2.31.0
 // @author             pionxzh
 // @description        Easily export the whole ChatGPT conversation history for further analysis or sharing.
 // @description:zh-CN  轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。
@@ -36,9 +36,11 @@
 // @match              https://new.oaifree.com/share/*/continue
 // @require            https://cdn.jsdelivr.net/npm/jszip@3.9.1/dist/jszip.min.js
 // @require            https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js
+// @connect            *
 // @grant              GM_deleteValue
 // @grant              GM_getValue
 // @grant              GM_setValue
+// @grant              GM_xmlhttpRequest
 // @grant              unsafeWindow
 // @run-at             document-end
 // ==/UserScript==
@@ -1113,11 +1115,26 @@ html {
   const KEY_META_ENABLED = "exporter:enable_meta";
   const KEY_META_LIST = "exporter:meta_list";
   const KEY_EXPORT_ALL_LIMIT = "exporter:export_all_limit";
+  const KEY_BACKUP_ENABLED = "exporter:backup_enabled";
+  const KEY_BACKUP_METHOD = "exporter:backup_method";
+  const KEY_BACKUP_FORMAT = "exporter:backup_format";
+  const KEY_BACKUP_LAST_TIME = "exporter:backup_last_time";
+  const KEY_S3_ENDPOINT = "exporter:s3_endpoint";
+  const KEY_S3_REGION = "exporter:s3_region";
+  const KEY_S3_BUCKET = "exporter:s3_bucket";
+  const KEY_S3_ACCESS_KEY = "exporter:s3_access_key";
+  const KEY_S3_SECRET_KEY = "exporter:s3_secret_key";
+  const KEY_S3_PATH_PREFIX = "exporter:s3_path_prefix";
+  const KEY_WEBDAV_URL = "exporter:webdav_url";
+  const KEY_WEBDAV_USERNAME = "exporter:webdav_username";
+  const KEY_WEBDAV_PASSWORD = "exporter:webdav_password";
+  const KEY_WEBDAV_PATH_PREFIX = "exporter:webdav_path_prefix";
   const KEY_OAI_LOCALE = "oai/apps/locale";
   const KEY_OAI_HISTORY_DISABLED = "oai/apps/historyDisabled";
   var _GM_deleteValue = /* @__PURE__ */ (() => typeof GM_deleteValue != "undefined" ? GM_deleteValue : void 0)();
   var _GM_getValue = /* @__PURE__ */ (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
   var _GM_setValue = /* @__PURE__ */ (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
+  var _GM_xmlhttpRequest = /* @__PURE__ */ (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
   var _unsafeWindow = /* @__PURE__ */ (() => typeof unsafeWindow != "undefined" ? unsafeWindow : void 0)();
   function getBase64FromImg(el) {
     const canvas = document.createElement("canvas");
@@ -8162,6 +8179,12 @@ html {
   const Loading$8 = "Loading";
   const Preview$8 = "Preview";
   const Search$8 = "Search";
+  const Endpoint$8 = "Endpoint";
+  const Region$8 = "Region";
+  const Bucket$8 = "Bucket";
+  const Username$8 = "Username";
+  const Password$8 = "Password";
+  const Never$8 = "Never";
   const en_US = {
     title: title$8,
     ExportHelper: ExportHelper$8,
@@ -8210,7 +8233,32 @@ html {
     "Select a source to load conversations": "Select a project above to load conversations.",
     Search: Search$8,
     "Last 100": "Last 100",
-    "No results": "No results"
+    "No results": "No results",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$8,
+    Region: Region$8,
+    Bucket: Bucket$8,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$8,
+    Password: Password$8,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$8,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$7 = "ChatGPT Exporter";
   const ExportHelper$7 = "Exportar";
@@ -8226,6 +8274,12 @@ html {
   const Loading$7 = "Cargando";
   const Preview$7 = "Previsualizar";
   const Search$7 = "Buscar";
+  const Endpoint$7 = "Endpoint";
+  const Region$7 = "Region";
+  const Bucket$7 = "Bucket";
+  const Username$7 = "Username";
+  const Password$7 = "Password";
+  const Never$7 = "Never";
   const es = {
     title: title$7,
     ExportHelper: ExportHelper$7,
@@ -8274,7 +8328,32 @@ html {
     "Select a source to load conversations": "Selecciona un proyecto arriba para cargar conversaciones.",
     Search: Search$7,
     "Last 100": "Últimas 100",
-    "No results": "Sin resultados"
+    "No results": "Sin resultados",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$7,
+    Region: Region$7,
+    Bucket: Bucket$7,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$7,
+    Password: Password$7,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$7,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$6 = "Exportateur ChatGPT";
   const ExportHelper$6 = "Exporter";
@@ -8290,6 +8369,12 @@ html {
   const Loading$6 = "Chargement";
   const Preview$6 = "Aperçu";
   const Search$6 = "Rechercher";
+  const Endpoint$6 = "Endpoint";
+  const Region$6 = "Region";
+  const Bucket$6 = "Bucket";
+  const Username$6 = "Username";
+  const Password$6 = "Password";
+  const Never$6 = "Never";
   const fr = {
     title: title$6,
     ExportHelper: ExportHelper$6,
@@ -8338,7 +8423,32 @@ html {
     "Select a source to load conversations": "Sélectionnez un projet ci-dessus pour charger les conversations.",
     Search: Search$6,
     "Last 100": "100 dernières",
-    "No results": "Aucun résultat"
+    "No results": "Aucun résultat",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$6,
+    Region: Region$6,
+    Bucket: Bucket$6,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$6,
+    Password: Password$6,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$6,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$5 = "ChatGPT Exporter";
   const ExportHelper$5 = "Ekspor";
@@ -8354,6 +8464,12 @@ html {
   const Loading$5 = "Memuat";
   const Preview$5 = "Pratinjau";
   const Search$5 = "Cari";
+  const Endpoint$5 = "Endpoint";
+  const Region$5 = "Region";
+  const Bucket$5 = "Bucket";
+  const Username$5 = "Username";
+  const Password$5 = "Password";
+  const Never$5 = "Never";
   const id_ID = {
     title: title$5,
     ExportHelper: ExportHelper$5,
@@ -8402,7 +8518,32 @@ html {
     "Select a source to load conversations": "Pilih proyek di atas untuk memuat percakapan.",
     Search: Search$5,
     "Last 100": "100 Terakhir",
-    "No results": "Tidak ada hasil"
+    "No results": "Tidak ada hasil",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$5,
+    Region: Region$5,
+    Bucket: Bucket$5,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$5,
+    Password: Password$5,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$5,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$4 = "ChatGPTエクスポーター";
   const ExportHelper$4 = "エクスポート";
@@ -8418,6 +8559,12 @@ html {
   const Loading$4 = "読み込み中";
   const Preview$4 = "プレビュー";
   const Search$4 = "検索";
+  const Endpoint$4 = "Endpoint";
+  const Region$4 = "Region";
+  const Bucket$4 = "Bucket";
+  const Username$4 = "Username";
+  const Password$4 = "Password";
+  const Never$4 = "Never";
   const ja_JP = {
     title: title$4,
     ExportHelper: ExportHelper$4,
@@ -8466,7 +8613,32 @@ html {
     "Select a source to load conversations": "上からプロジェクトを選択して会話を読み込んでください。",
     Search: Search$4,
     "Last 100": "最新100件",
-    "No results": "結果なし"
+    "No results": "結果なし",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$4,
+    Region: Region$4,
+    Bucket: Bucket$4,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$4,
+    Password: Password$4,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$4,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$3 = "ChatGPT Exporter";
   const ExportHelper$3 = "Export";
@@ -8482,6 +8654,12 @@ html {
   const Loading$3 = "Загрузка";
   const Preview$3 = "Предпросмотр";
   const Search$3 = "Поиск";
+  const Endpoint$3 = "Endpoint";
+  const Region$3 = "Region";
+  const Bucket$3 = "Bucket";
+  const Username$3 = "Username";
+  const Password$3 = "Password";
+  const Never$3 = "Never";
   const ru = {
     title: title$3,
     ExportHelper: ExportHelper$3,
@@ -8530,7 +8708,32 @@ html {
     "Select a source to load conversations": "Выберите проект выше, чтобы загрузить беседы.",
     Search: Search$3,
     "Last 100": "Последние 100",
-    "No results": "Нет результатов"
+    "No results": "Нет результатов",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$3,
+    Region: Region$3,
+    Bucket: Bucket$3,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$3,
+    Password: Password$3,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$3,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$2 = "ChatGPT Exporter";
   const ExportHelper$2 = "Dışa Aktar";
@@ -8546,6 +8749,12 @@ html {
   const Loading$2 = "Yükleniyor";
   const Preview$2 = "Önizleme";
   const Search$2 = "Ara";
+  const Endpoint$2 = "Endpoint";
+  const Region$2 = "Region";
+  const Bucket$2 = "Bucket";
+  const Username$2 = "Username";
+  const Password$2 = "Password";
+  const Never$2 = "Never";
   const tr_TR = {
     title: title$2,
     ExportHelper: ExportHelper$2,
@@ -8594,7 +8803,32 @@ html {
     "Select a source to load conversations": "Konuşmaları yüklemek için yukarıdan bir proje seçin.",
     Search: Search$2,
     "Last 100": "Son 100",
-    "No results": "Sonuç yok"
+    "No results": "Sonuç yok",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint: Endpoint$2,
+    Region: Region$2,
+    Bucket: Bucket$2,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username: Username$2,
+    Password: Password$2,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never: Never$2,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   const title$1 = "ChatGPT Exporter";
   const ExportHelper$1 = "导出助手";
@@ -8610,6 +8844,12 @@ html {
   const Loading$1 = "加载中";
   const Preview$1 = "预览";
   const Search$1 = "搜索";
+  const Endpoint$1 = "端点地址";
+  const Region$1 = "区域";
+  const Bucket$1 = "存储桶";
+  const Username$1 = "用户名";
+  const Password$1 = "密码";
+  const Never$1 = "从未";
   const zh_Hans = {
     title: title$1,
     ExportHelper: ExportHelper$1,
@@ -8658,7 +8898,32 @@ html {
     "Select a source to load conversations": "请在上方选择一个项目以加载对话。",
     Search: Search$1,
     "Last 100": "最新 100 条",
-    "No results": "无结果"
+    "No results": "无结果",
+    "Remote Backup": "远程备份",
+    "Backup Method": "备份方式",
+    "Backup Format": "备份格式",
+    "S3 Configuration": "S3 配置",
+    "WebDAV Configuration": "WebDAV 配置",
+    Endpoint: Endpoint$1,
+    Region: Region$1,
+    Bucket: Bucket$1,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "路径前缀",
+    "WebDAV URL": "WebDAV 地址",
+    Username: Username$1,
+    Password: Password$1,
+    "Backup to Remote": "备份到远程",
+    "Last Backup": "上次备份",
+    Never: Never$1,
+    "Just now": "刚刚",
+    "{n}m ago": "{{n}}分钟前",
+    "{n}h ago": "{{n}}小时前",
+    "{n}d ago": "{{n}}天前",
+    "Backup Success": "备份成功",
+    "Backup Failed": "备份失败",
+    "Backup in progress": "备份中...",
+    "Please configure remote backup in settings": "请先在设置中配置远程备份"
   };
   const title = "ChatGPT Exporter";
   const ExportHelper = "Export";
@@ -8674,6 +8939,12 @@ html {
   const Loading = "載入中";
   const Preview = "預覽";
   const Search = "搜尋";
+  const Endpoint = "Endpoint";
+  const Region = "Region";
+  const Bucket = "Bucket";
+  const Username = "Username";
+  const Password = "Password";
+  const Never = "Never";
   const zh_Hant = {
     title,
     ExportHelper,
@@ -8722,7 +8993,32 @@ html {
     "Select a source to load conversations": "請在上方選擇一個專案以載入對話。",
     Search,
     "Last 100": "最新 100 條",
-    "No results": "無結果"
+    "No results": "無結果",
+    "Remote Backup": "Remote Backup",
+    "Backup Method": "Backup Method",
+    "Backup Format": "Backup Format",
+    "S3 Configuration": "S3 Configuration",
+    "WebDAV Configuration": "WebDAV Configuration",
+    Endpoint,
+    Region,
+    Bucket,
+    "Access Key": "Access Key",
+    "Secret Key": "Secret Key",
+    "Path Prefix": "Path Prefix",
+    "WebDAV URL": "WebDAV URL",
+    Username,
+    Password,
+    "Backup to Remote": "Backup to Remote",
+    "Last Backup": "Last Backup",
+    Never,
+    "Just now": "Just now",
+    "{n}m ago": "{{n}}m ago",
+    "{n}h ago": "{{n}}h ago",
+    "{n}d ago": "{{n}}d ago",
+    "Backup Success": "Backup successful",
+    "Backup Failed": "Backup failed",
+    "Backup in progress": "Backing up...",
+    "Please configure remote backup in settings": "Please configure remote backup in settings"
   };
   class GMStorage {
     static get(key2) {
@@ -20860,7 +21156,7 @@ html {
     downloadFile(fileName, "text/html", standardizeLineBreaks(html2));
     return true;
   }
-  async function exportAllToHtml(fileNameFormat, apiConversations, metaList, projectName) {
+  async function exportAllToHtml(fileNameFormat, apiConversations, metaList, projectName, returnBlob) {
     const userAvatar = await getUserAvatar();
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
@@ -20889,6 +21185,7 @@ html {
         level: 9
       }
     });
+    if (returnBlob) return blob;
     downloadFile(buildZipFileName("html", projectName), "application/zip", blob);
     return true;
   }
@@ -21351,13 +21648,14 @@ ${content2.text}
     downloadFile(fileName, "application/json", content2);
     return true;
   }
-  async function exportAllToOfficialJson(_fileNameFormat, apiConversations, _metaList, projectName) {
+  async function exportAllToOfficialJson(_fileNameFormat, apiConversations, _metaList, projectName, returnBlob) {
     const content2 = conversationToJson(apiConversations);
+    if (returnBlob) return new Blob([content2], { type: "application/json" });
     const baseName = projectName ? `chatgpt-export-project-${normalizeProjectName(projectName)}` : "chatgpt-export";
     downloadFile(`${baseName}.json`, "application/json", content2);
     return true;
   }
-  async function exportAllToJson(fileNameFormat, apiConversations, _metaList, projectName) {
+  async function exportAllToJson(fileNameFormat, apiConversations, _metaList, projectName, returnBlob) {
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
     const conversations = apiConversations.map((x2) => ({
@@ -21388,6 +21686,7 @@ ${content2.text}
         level: 9
       }
     });
+    if (returnBlob) return blob;
     downloadFile(buildZipFileName("json", projectName), "application/zip", blob);
     return true;
   }
@@ -21407,7 +21706,7 @@ ${content2.text}
     downloadFile(fileName, "text/markdown", standardizeLineBreaks(markdown));
     return true;
   }
-  async function exportAllToMarkdown(fileNameFormat, apiConversations, metaList, projectName) {
+  async function exportAllToMarkdown(fileNameFormat, apiConversations, metaList, projectName, returnBlob) {
     const zip = new JSZip();
     const filenameMap = /* @__PURE__ */ new Map();
     const conversations = apiConversations.map((x2) => processConversation(x2));
@@ -21435,6 +21734,7 @@ ${content2.text}
         level: 9
       }
     });
+    if (returnBlob) return blob;
     downloadFile(buildZipFileName("markdown", projectName), "application/zip", blob);
     return true;
   }
@@ -21801,7 +22101,6 @@ ${content2}`;
     window.addEventListener("resize", callback);
     return () => window.removeEventListener("resize", callback);
   }
-  const Divider = () => /* @__PURE__ */ o$8("div", { className: "h-px bg-token-border-light" });
   function EventEmitter(n2) {
     return { all: n2 = n2 || /* @__PURE__ */ new Map(), on: function(t2, e2) {
       var i2 = n2.get(t2);
@@ -21897,6 +22196,203 @@ ${content2}`;
       this.eventEmitter.emit("done", this.results);
     }
   }
+  function gmFetch(options) {
+    return new Promise((resolve, reject) => {
+      _GM_xmlhttpRequest({
+        method: options.method,
+        url: options.url,
+        headers: options.headers,
+        data: options.data,
+        responseType: "text",
+        onload: (response) => {
+          resolve({
+            status: response.status,
+            statusText: response.statusText,
+            responseText: response.responseText
+          });
+        },
+        onerror: (error2) => {
+          reject(new Error(`Network error: ${error2.statusText || "Request failed"}`));
+        },
+        ontimeout: () => {
+          reject(new Error("Request timed out"));
+        }
+      });
+    });
+  }
+  async function sha256(data) {
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash)).map((b2) => b2.toString(16).padStart(2, "0")).join("");
+  }
+  async function sha256Str(data) {
+    return sha256(new TextEncoder().encode(data));
+  }
+  async function hmacSha256(key2, data) {
+    const cryptoKey = await crypto.subtle.importKey("raw", key2, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
+  }
+  async function getSigningKey(secretKey, dateStamp, region, service) {
+    const kDate = await hmacSha256(new TextEncoder().encode(`AWS4${secretKey}`), dateStamp);
+    const kRegion = await hmacSha256(kDate, region);
+    const kService = await hmacSha256(kRegion, service);
+    return hmacSha256(kService, "aws4_request");
+  }
+  function toHex(buffer) {
+    return Array.from(new Uint8Array(buffer)).map((b2) => b2.toString(16).padStart(2, "0")).join("");
+  }
+  async function uploadToS3(config, data, objectKey) {
+    const { endpoint, region, bucket, accessKey, secretKey } = config;
+    const url = new URL(endpoint);
+    const path2 = `/${bucket}/${objectKey}`;
+    const fullUrl = `${url.protocol}//${url.host}${path2}`;
+    const now = /* @__PURE__ */ new Date();
+    const dateStamp = now.toISOString().replace(/[-:]/g, "").slice(0, 8);
+    const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    const payloadHash = await sha256(data);
+    const contentType = "application/zip";
+    const headers = {
+      "Host": url.host,
+      "Content-Type": contentType,
+      "x-amz-content-sha256": payloadHash,
+      "x-amz-date": amzDate
+    };
+    const signedHeaderKeys = Object.keys(headers).map((k2) => k2.toLowerCase()).sort();
+    const signedHeaders = signedHeaderKeys.join(";");
+    const canonicalHeaders = signedHeaderKeys.map((k2) => `${k2}:${headers[Object.keys(headers).find((h2) => h2.toLowerCase() === k2)]}
+`).join("");
+    const canonicalRequest = [
+      "PUT",
+      path2,
+      "",
+      canonicalHeaders,
+      signedHeaders,
+      payloadHash
+    ].join("\n");
+    const scope = `${dateStamp}/${region}/s3/aws4_request`;
+    const stringToSign = [
+      "AWS4-HMAC-SHA256",
+      amzDate,
+      scope,
+      await sha256Str(canonicalRequest)
+    ].join("\n");
+    const signingKey = await getSigningKey(secretKey, dateStamp, region, "s3");
+    const signature = toHex(await hmacSha256(signingKey, stringToSign));
+    const authorization = `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    const response = await gmFetch({
+      method: "PUT",
+      url: fullUrl,
+      headers: {
+        ...headers,
+        Authorization: authorization
+      },
+      data
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`S3 upload failed: ${response.status} ${response.statusText} - ${response.responseText}`);
+    }
+  }
+  function basicAuth(username, password) {
+    return `Basic ${btoa(`${username}:${password}`)}`;
+  }
+  function joinUrl(base, path2) {
+    const cleanBase = base.replace(/\/+$/, "");
+    const cleanPath = path2.replace(/^\/+/, "");
+    return cleanPath ? `${cleanBase}/${cleanPath}` : cleanBase;
+  }
+  async function ensureDirectory(config) {
+    if (!config.pathPrefix) return;
+    const dirUrl = joinUrl(config.url, config.pathPrefix);
+    try {
+      const response = await gmFetch({
+        method: "MKCOL",
+        url: `${dirUrl.replace(/\/+$/, "")}/`,
+        headers: {
+          Authorization: basicAuth(config.username, config.password)
+        }
+      });
+      if (response.status !== 201 && response.status !== 405 && response.status !== 409) {
+        console.warn(`[Exporter] MKCOL returned ${response.status}, continuing anyway`);
+      }
+    } catch {
+      console.warn("[Exporter] MKCOL failed, continuing with upload");
+    }
+  }
+  async function uploadToWebDAV(config, data, fileName) {
+    await ensureDirectory(config);
+    const uploadPath = config.pathPrefix ? `${config.pathPrefix.replace(/\/+$/, "")}/${fileName}` : fileName;
+    const uploadUrl = joinUrl(config.url, uploadPath);
+    const response = await gmFetch({
+      method: "PUT",
+      url: uploadUrl,
+      headers: {
+        "Authorization": basicAuth(config.username, config.password),
+        "Content-Type": "application/zip"
+      },
+      data
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`WebDAV upload failed: ${response.status} ${response.statusText} - ${response.responseText}`);
+    }
+  }
+  function getExportFunction(backupFormat) {
+    switch (backupFormat) {
+      case "HTML":
+        return exportAllToHtml;
+      case "JSON":
+        return exportAllToOfficialJson;
+      case "JSON (ZIP)":
+        return exportAllToJson;
+      case "Markdown":
+      default:
+        return exportAllToMarkdown;
+    }
+  }
+  async function buildBackupZip(format, metaList, exportAllLimit, backupFormat, onProgress) {
+    const conversationItems = await fetchAllConversations(null, exportAllLimit);
+    const queue = new RequestQueue(200, 1600);
+    conversationItems.forEach((item) => {
+      queue.add({
+        name: item.title,
+        request: () => fetchConversation(item.id, backupFormat !== "JSON")
+      });
+    });
+    const conversations = await new Promise((resolve) => {
+      queue.on("done", resolve);
+      queue.start();
+    });
+    const exportFn = getExportFunction(backupFormat);
+    const result = await exportFn(format, conversations, metaList, void 0, true);
+    const blob = result;
+    if (backupFormat === "JSON") {
+      const zip = new JSZip();
+      zip.file("chatgpt-export.json", blob);
+      return zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 9 }
+      });
+    }
+    return blob;
+  }
+  async function backupToRemote(blob, config) {
+    try {
+      const data = await blob.arrayBuffer();
+      const fileName = `ChatGPT-backup-${timestamp()}.zip`;
+      if (config.method === "S3") {
+        const objectKey = config.pathPrefix ? `${config.pathPrefix.replace(/\/+$/, "")}/${fileName}` : fileName;
+        await uploadToS3(config, data, objectKey);
+      } else {
+        await uploadToWebDAV(config, data, fileName);
+      }
+      return { success: true };
+    } catch (error2) {
+      return {
+        success: false,
+        error: error2 instanceof Error ? error2.message : String(error2)
+      };
+    }
+  }
+  const Divider = () => /* @__PURE__ */ o$8("div", { className: "h-px bg-token-border-light" });
   function FileCode() {
     return /* @__PURE__ */ o$8("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 384 512", className: "w-4 h-4", fill: "currentColor", children: /* @__PURE__ */ o$8("path", { d: "M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM153 289l-31 31 31 31c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L71 337c-9.4-9.4-9.4-24.6 0-33.9l48-48c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9zM265 255l48 48c9.4 9.4 9.4 24.6 0 33.9l-48 48c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l31-31-31-31c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0z" }) });
   }
@@ -22058,6 +22554,48 @@ ${content2}`;
     setExportAllLimit: (_24) => {
     },
     resetDefault: () => {
+    },
+    backupEnabled: false,
+    setBackupEnabled: (_24) => {
+    },
+    backupMethod: "S3",
+    setBackupMethod: (_24) => {
+    },
+    backupFormat: "Markdown",
+    setBackupFormat: (_24) => {
+    },
+    backupLastTime: 0,
+    setBackupLastTime: (_24) => {
+    },
+    s3Endpoint: "",
+    setS3Endpoint: (_24) => {
+    },
+    s3Region: "",
+    setS3Region: (_24) => {
+    },
+    s3Bucket: "",
+    setS3Bucket: (_24) => {
+    },
+    s3AccessKey: "",
+    setS3AccessKey: (_24) => {
+    },
+    s3SecretKey: "",
+    setS3SecretKey: (_24) => {
+    },
+    s3PathPrefix: "",
+    setS3PathPrefix: (_24) => {
+    },
+    webdavUrl: "",
+    setWebdavUrl: (_24) => {
+    },
+    webdavUsername: "",
+    setWebdavUsername: (_24) => {
+    },
+    webdavPassword: "",
+    setWebdavPassword: (_24) => {
+    },
+    webdavPathPrefix: "",
+    setWebdavPathPrefix: (_24) => {
     }
   });
   const SettingProvider = ({ children }) => {
@@ -22069,6 +22607,20 @@ ${content2}`;
     const [enableMeta, setEnableMeta] = useGMStorage(KEY_META_ENABLED, false);
     const [exportMetaList, setExportMetaList] = useGMStorage(KEY_META_LIST, defaultExportMetaList);
     const [exportAllLimit, setExportAllLimit] = useGMStorage(KEY_EXPORT_ALL_LIMIT, defaultExportAllLimit);
+    const [backupEnabled, setBackupEnabled] = useGMStorage(KEY_BACKUP_ENABLED, false);
+    const [backupMethod, setBackupMethod] = useGMStorage(KEY_BACKUP_METHOD, "S3");
+    const [backupFormat, setBackupFormat] = useGMStorage(KEY_BACKUP_FORMAT, "Markdown");
+    const [backupLastTime, setBackupLastTime] = useGMStorage(KEY_BACKUP_LAST_TIME, 0);
+    const [s3Endpoint, setS3Endpoint] = useGMStorage(KEY_S3_ENDPOINT, "");
+    const [s3Region, setS3Region] = useGMStorage(KEY_S3_REGION, "");
+    const [s3Bucket, setS3Bucket] = useGMStorage(KEY_S3_BUCKET, "");
+    const [s3AccessKey, setS3AccessKey] = useGMStorage(KEY_S3_ACCESS_KEY, "");
+    const [s3SecretKey, setS3SecretKey] = useGMStorage(KEY_S3_SECRET_KEY, "");
+    const [s3PathPrefix, setS3PathPrefix] = useGMStorage(KEY_S3_PATH_PREFIX, "");
+    const [webdavUrl, setWebdavUrl] = useGMStorage(KEY_WEBDAV_URL, "");
+    const [webdavUsername, setWebdavUsername] = useGMStorage(KEY_WEBDAV_USERNAME, "");
+    const [webdavPassword, setWebdavPassword] = useGMStorage(KEY_WEBDAV_PASSWORD, "");
+    const [webdavPathPrefix, setWebdavPathPrefix] = useGMStorage(KEY_WEBDAV_PATH_PREFIX, "");
     const resetDefault = T$4(() => {
       setFormat(defaultFormat);
       setEnableTimestamp(false);
@@ -22102,7 +22654,35 @@ ${content2}`;
           setExportMetaList,
           exportAllLimit,
           setExportAllLimit,
-          resetDefault
+          resetDefault,
+          backupEnabled,
+          setBackupEnabled,
+          backupMethod,
+          setBackupMethod,
+          backupFormat,
+          setBackupFormat,
+          backupLastTime,
+          setBackupLastTime,
+          s3Endpoint,
+          setS3Endpoint,
+          s3Region,
+          setS3Region,
+          s3Bucket,
+          setS3Bucket,
+          s3AccessKey,
+          setS3AccessKey,
+          s3SecretKey,
+          setS3SecretKey,
+          s3PathPrefix,
+          setS3PathPrefix,
+          webdavUrl,
+          setWebdavUrl,
+          webdavUsername,
+          setWebdavUsername,
+          webdavPassword,
+          setWebdavPassword,
+          webdavPathPrefix,
+          setWebdavPathPrefix
         },
         children
       }
@@ -22937,7 +23517,33 @@ ${content2}`;
       exportMetaList,
       setExportMetaList,
       exportAllLimit,
-      setExportAllLimit
+      setExportAllLimit,
+      backupEnabled,
+      setBackupEnabled,
+      backupMethod,
+      setBackupMethod,
+      backupFormat,
+      setBackupFormat,
+      s3Endpoint,
+      setS3Endpoint,
+      s3Region,
+      setS3Region,
+      s3Bucket,
+      setS3Bucket,
+      s3AccessKey,
+      setS3AccessKey,
+      s3SecretKey,
+      setS3SecretKey,
+      s3PathPrefix,
+      setS3PathPrefix,
+      webdavUrl,
+      setWebdavUrl,
+      webdavUsername,
+      setWebdavUsername,
+      webdavPassword,
+      setWebdavPassword,
+      webdavPathPrefix,
+      setWebdavPathPrefix
       /* eslint-enable pionxzh/consistent-list-newline */
     } = useSettingContext();
     const { t: t2, i18n } = useTranslation();
@@ -23156,6 +23762,66 @@ ${content2}`;
                     ] })
                   ] }),
                   /* @__PURE__ */ o$8("div", { className: "absolute right-4", children: /* @__PURE__ */ o$8(Toggle, { label: "", checked: enableMeta, onCheckedUpdate: setEnableMeta }) })
+                ] }),
+                /* @__PURE__ */ o$8("div", { className: "relative flex bg-white dark:bg-white/5 rounded p-4", children: [
+                  /* @__PURE__ */ o$8("div", { className: "w-full", children: [
+                    /* @__PURE__ */ o$8("dt", { className: "text-md font-medium text-gray-800 dark:text-white", children: t2("Remote Backup") }),
+                    /* @__PURE__ */ o$8("dd", { className: "text-sm text-gray-700 dark:text-gray-300", children: backupEnabled && /* @__PURE__ */ o$8(k$3, { children: [
+                      /* @__PURE__ */ o$8("div", { className: "mt-3", children: [
+                        /* @__PURE__ */ o$8("label", { className: "block text-sm font-medium mb-1", children: t2("Backup Method") }),
+                        /* @__PURE__ */ o$8(
+                          "select",
+                          {
+                            className: "Select",
+                            value: backupMethod,
+                            onChange: (e2) => setBackupMethod(e2.currentTarget.value),
+                            children: [
+                              /* @__PURE__ */ o$8("option", { value: "S3", children: "S3" }),
+                              /* @__PURE__ */ o$8("option", { value: "WebDAV", children: "WebDAV" })
+                            ]
+                          }
+                        )
+                      ] }),
+                      /* @__PURE__ */ o$8("div", { className: "mt-3", children: [
+                        /* @__PURE__ */ o$8("label", { className: "block text-sm font-medium mb-1", children: t2("Backup Format") }),
+                        /* @__PURE__ */ o$8(
+                          "select",
+                          {
+                            className: "Select",
+                            value: backupFormat,
+                            onChange: (e2) => setBackupFormat(e2.currentTarget.value),
+                            children: [
+                              /* @__PURE__ */ o$8("option", { value: "Markdown", children: "Markdown" }),
+                              /* @__PURE__ */ o$8("option", { value: "HTML", children: "HTML" }),
+                              /* @__PURE__ */ o$8("option", { value: "JSON", children: "JSON" }),
+                              /* @__PURE__ */ o$8("option", { value: "JSON (ZIP)", children: "JSON (ZIP)" })
+                            ]
+                          }
+                        )
+                      ] }),
+                      /* @__PURE__ */ o$8("div", { className: `mt-4 p-3 border rounded ${backupMethod === "S3" ? "border-blue-300 dark:border-blue-700" : "border-gray-200 dark:border-gray-700 opacity-60"}`, children: [
+                        /* @__PURE__ */ o$8("div", { className: "text-sm font-medium mb-2", children: t2("S3 Configuration") }),
+                        /* @__PURE__ */ o$8("div", { className: "space-y-2", children: [
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Endpoint"), value: s3Endpoint, onChange: (e2) => setS3Endpoint(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Region"), value: s3Region, onChange: (e2) => setS3Region(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Bucket"), value: s3Bucket, onChange: (e2) => setS3Bucket(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Access Key"), value: s3AccessKey, onChange: (e2) => setS3AccessKey(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", type: "password", placeholder: t2("Secret Key"), value: s3SecretKey, onChange: (e2) => setS3SecretKey(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Path Prefix"), value: s3PathPrefix, onChange: (e2) => setS3PathPrefix(e2.currentTarget.value) })
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ o$8("div", { className: `mt-3 p-3 border rounded ${backupMethod === "WebDAV" ? "border-blue-300 dark:border-blue-700" : "border-gray-200 dark:border-gray-700 opacity-60"}`, children: [
+                        /* @__PURE__ */ o$8("div", { className: "text-sm font-medium mb-2", children: t2("WebDAV Configuration") }),
+                        /* @__PURE__ */ o$8("div", { className: "space-y-2", children: [
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("WebDAV URL"), value: webdavUrl, onChange: (e2) => setWebdavUrl(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Username"), value: webdavUsername, onChange: (e2) => setWebdavUsername(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", type: "password", placeholder: t2("Password"), value: webdavPassword, onChange: (e2) => setWebdavPassword(e2.currentTarget.value) }),
+                          /* @__PURE__ */ o$8("input", { className: "Input", placeholder: t2("Path Prefix"), value: webdavPathPrefix, onChange: (e2) => setWebdavPathPrefix(e2.currentTarget.value) })
+                        ] })
+                      ] })
+                    ] }) })
+                  ] }),
+                  /* @__PURE__ */ o$8("div", { className: "absolute right-4", children: /* @__PURE__ */ o$8(Toggle, { label: "", checked: backupEnabled, onCheckedUpdate: setBackupEnabled }) })
                 ] })
               ] }),
               /* @__PURE__ */ o$8("div", { className: "flex mt-6", style: { justifyContent: "flex-end" }, children: /* @__PURE__ */ o$8($5d3850c4d0b4e6c7$export$f39c2d165cd861fe, { asChild: true, children: /* @__PURE__ */ o$8("button", { className: "Button green font-bold", children: t2("Save") }) }) }),
@@ -23163,6 +23829,84 @@ ${content2}`;
             ] })
           ] })
         ]
+      }
+    );
+  };
+  let toastId = 0;
+  const toastListeners = /* @__PURE__ */ new Set();
+  function showToast(message, type) {
+    const toast = { id: ++toastId, message, type };
+    toastListeners.forEach((fn2) => fn2(toast));
+  }
+  const ToastContainer = () => {
+    const [toasts, setToasts] = h$4([]);
+    p$6(() => {
+      const listener = (toast) => {
+        setToasts((prev) => [...prev, toast]);
+      };
+      toastListeners.add(listener);
+      return () => {
+        toastListeners.delete(listener);
+      };
+    }, []);
+    const dismiss = T$4((id) => {
+      setToasts((prev) => prev.filter((t2) => t2.id !== id));
+    }, []);
+    if (toasts.length === 0) return null;
+    return /* @__PURE__ */ o$8(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          top: 16,
+          right: 16,
+          zIndex: 99999,
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          maxWidth: "360px"
+        },
+        children: toasts.map((toast) => /* @__PURE__ */ o$8(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              color: "#fff",
+              fontSize: "14px",
+              lineHeight: "1.4",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              animation: "fadeIn 0.2s ease-out",
+              backgroundColor: toast.type === "success" ? "#16a34a" : "#dc2626"
+            },
+            children: [
+              /* @__PURE__ */ o$8("span", { style: { flex: 1, wordBreak: "break-word" }, children: toast.message }),
+              /* @__PURE__ */ o$8(
+                "button",
+                {
+                  onClick: () => dismiss(toast.id),
+                  style: {
+                    background: "none",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    padding: "0 0 0 8px",
+                    fontSize: "18px",
+                    lineHeight: "1",
+                    opacity: 0.8,
+                    flexShrink: 0
+                  },
+                  "aria-label": "Close",
+                  children: "×"
+                }
+              )
+            ]
+          },
+          toast.id
+        ))
       }
     );
   };
@@ -23178,7 +23922,23 @@ ${content2}`;
       enableTimestamp,
       timeStamp24H,
       enableMeta,
-      exportMetaList
+      exportMetaList,
+      exportAllLimit,
+      backupEnabled,
+      backupMethod,
+      backupFormat,
+      backupLastTime,
+      setBackupLastTime,
+      s3Endpoint,
+      s3Region,
+      s3Bucket,
+      s3AccessKey,
+      s3SecretKey,
+      s3PathPrefix,
+      webdavUrl,
+      webdavUsername,
+      webdavPassword,
+      webdavPathPrefix
     } = useSettingContext();
     p$6(() => {
       if (enableTimestamp) {
@@ -23188,6 +23948,64 @@ ${content2}`;
       }
     }, [enableTimestamp, timeStamp24H]);
     const metaList = F$1(() => enableMeta ? exportMetaList : [], [enableMeta, exportMetaList]);
+    const [backingUp, setBackingUp] = h$4(false);
+    const backupConfigured = F$1(() => {
+      if (backupMethod === "S3") {
+        return !!(s3Endpoint && s3Bucket && s3AccessKey && s3SecretKey);
+      }
+      return !!(webdavUrl && webdavUsername && webdavPassword);
+    }, [backupMethod, s3Endpoint, s3Bucket, s3AccessKey, s3SecretKey, webdavUrl, webdavUsername, webdavPassword]);
+    const relativeTime = F$1(() => {
+      if (!backupLastTime) return t2("Never");
+      const diff = Date.now() - backupLastTime;
+      const minutes = Math.floor(diff / 6e4);
+      const hours = Math.floor(diff / 36e5);
+      const days = Math.floor(diff / 864e5);
+      if (minutes < 1) return t2("Just now");
+      if (hours < 1) return t2("{n}m ago", { n: minutes });
+      if (days < 1) return t2("{n}h ago", { n: hours });
+      return t2("{n}d ago", { n: days });
+    }, [backupLastTime, t2]);
+    const onClickBackup = T$4(async () => {
+      if (backingUp || !backupConfigured) return;
+      setBackingUp(true);
+      try {
+        const blob = await buildBackupZip(format, enableMeta ? exportMetaList : [], exportAllLimit, backupFormat);
+        const config = backupMethod === "S3" ? { method: "S3", endpoint: s3Endpoint, region: s3Region, bucket: s3Bucket, accessKey: s3AccessKey, secretKey: s3SecretKey, pathPrefix: s3PathPrefix } : { method: "WebDAV", url: webdavUrl, username: webdavUsername, password: webdavPassword, pathPrefix: webdavPathPrefix };
+        const result = await backupToRemote(blob, config);
+        if (result.success) {
+          setBackupLastTime(Date.now());
+          showToast(t2("Backup Success"), "success");
+        } else {
+          showToast(`${t2("Backup Failed")}: ${result.error}`, "error");
+        }
+      } catch (error2) {
+        showToast(`${t2("Backup Failed")}: ${error2 instanceof Error ? error2.message : String(error2)}`, "error");
+      } finally {
+        setBackingUp(false);
+      }
+    }, [
+      backingUp,
+      backupConfigured,
+      format,
+      enableMeta,
+      exportMetaList,
+      exportAllLimit,
+      backupFormat,
+      backupMethod,
+      s3Endpoint,
+      s3Region,
+      s3Bucket,
+      s3AccessKey,
+      s3SecretKey,
+      s3PathPrefix,
+      webdavUrl,
+      webdavUsername,
+      webdavPassword,
+      webdavPathPrefix,
+      setBackupLastTime,
+      t2
+    ]);
     const onClickText = T$4(() => exportToText(), []);
     const onClickPng = T$4(() => exportToPng(format), [format]);
     const onClickMarkdown = T$4(() => exportToMarkdown(format, metaList), [format, metaList]);
@@ -23397,11 +24215,38 @@ ${content2}`;
           ]
         }
       ),
+      backupEnabled && /* @__PURE__ */ o$8(
+        "div",
+        {
+          className: "flex items-center justify-between mt-1 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 rounded-lg",
+          style: { minHeight: 32 },
+          children: [
+            /* @__PURE__ */ o$8("span", { children: [
+              t2("Last Backup"),
+              ": ",
+              relativeTime
+            ] }),
+            /* @__PURE__ */ o$8(
+              "button",
+              {
+                className: "px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
+                disabled: backingUp || !backupConfigured,
+                title: !backupConfigured ? t2("Please configure remote backup in settings") : "",
+                onClick: onClickBackup,
+                children: backingUp ? t2("Backup in progress") : t2("Backup to Remote")
+              }
+            )
+          ]
+        }
+      ),
       /* @__PURE__ */ o$8(Divider, {})
     ] });
   }
   function Menu({ container }) {
-    return /* @__PURE__ */ o$8(SettingProvider, { children: /* @__PURE__ */ o$8(MenuInner, { container }) });
+    return /* @__PURE__ */ o$8(SettingProvider, { children: [
+      /* @__PURE__ */ o$8(MenuInner, { container }),
+      /* @__PURE__ */ o$8(ToastContainer, {})
+    ] });
   }
   main();
   function main() {
