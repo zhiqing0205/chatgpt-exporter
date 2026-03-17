@@ -3,7 +3,7 @@
 // @name:zh-CN         ChatGPT Exporter Sync
 // @name:zh-TW         ChatGPT Exporter Sync
 // @namespace          ziuch
-// @version            2.31.0
+// @version            2.32.0
 // @author             ziuch
 // @description        Easily export the whole ChatGPT conversation history for further analysis or sharing.
 // @description:zh-CN  轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。
@@ -1458,6 +1458,26 @@ html {
       }
     }
     return null;
+  }
+  async function getCurrentWorkspaceName() {
+    const accountsCheck = await fetchAccountsCheck();
+    const workspaceId = getCookie(
+      "_account"
+      /* Workspace */
+    );
+    if (workspaceId) {
+      const account = accountsCheck.accounts[workspaceId];
+      if (account == null ? void 0 : account.account.name) {
+        return account.account.name;
+      }
+    }
+    for (const key2 of accountsCheck.account_ordering) {
+      const account = accountsCheck.accounts[key2];
+      if (account == null ? void 0 : account.account.name) {
+        return account.account.name;
+      }
+    }
+    return "personal";
   }
   const ModelMapping = {
     "text-davinci-002-render-sha": "GPT-3.5",
@@ -22374,10 +22394,15 @@ ${content2}`;
     }
     return blob;
   }
+  function normalizeWorkspaceName(name) {
+    return name.replace(/[^a-zA-Z0-9\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]+/g, "-").replace(/^-+|-+$/g, "") || "default";
+  }
   async function backupToRemote(blob, config) {
     try {
       const data = await blob.arrayBuffer();
-      const fileName = `ChatGPT-backup-${timestamp()}.zip`;
+      const workspaceName = await getCurrentWorkspaceName();
+      const safeName = normalizeWorkspaceName(workspaceName);
+      const fileName = `ChatGPT-backup-${safeName}-${timestamp()}.zip`;
       if (config.method === "S3") {
         const objectKey = config.pathPrefix ? `${config.pathPrefix.replace(/\/+$/, "")}/${fileName}` : fileName;
         await uploadToS3(config, data, objectKey);
