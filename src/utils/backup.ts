@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { fetchAllConversations, fetchConversation } from '../api'
+import { fetchAllConversations, fetchConversation, getCurrentWorkspaceName } from '../api'
 import { exportAllToHtml } from '../exporter/html'
 import { exportAllToJson, exportAllToOfficialJson } from '../exporter/json'
 import { exportAllToMarkdown } from '../exporter/markdown'
@@ -90,13 +90,22 @@ export async function buildBackupZip(
     return blob
 }
 
+function normalizeWorkspaceName(name: string): string {
+    return name
+        .replace(/[^a-zA-Z0-9\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        || 'default'
+}
+
 export async function backupToRemote(
     blob: Blob,
     config: BackupConfig,
 ): Promise<BackupResult> {
     try {
         const data = await blob.arrayBuffer()
-        const fileName = `ChatGPT-backup-${timestamp()}.zip`
+        const workspaceName = await getCurrentWorkspaceName()
+        const safeName = normalizeWorkspaceName(workspaceName)
+        const fileName = `ChatGPT-backup-${safeName}-${timestamp()}.zip`
 
         if (config.method === 'S3') {
             const objectKey = config.pathPrefix

@@ -677,6 +677,25 @@ export async function getTeamAccountId(): Promise<string | null> {
     return null
 }
 
+export async function getCurrentWorkspaceName(): Promise<string> {
+    const accountsCheck = await fetchAccountsCheck()
+    const workspaceId = getCookie(ChatGPTCookie.Workspace)
+    if (workspaceId) {
+        const account = accountsCheck.accounts[workspaceId]
+        if (account?.account.name) {
+            return account.account.name
+        }
+    }
+    // Fallback: find the personal account or first account with a name
+    for (const key of accountsCheck.account_ordering) {
+        const account = accountsCheck.accounts[key]
+        if (account?.account.name) {
+            return account.account.name
+        }
+    }
+    return 'personal'
+}
+
 export interface ConversationResult {
     id: string
     title: string
