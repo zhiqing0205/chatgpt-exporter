@@ -4,13 +4,13 @@
   "version": "2.31.0",
   "private": true,
   "packageManager": "pnpm@8.14.1",
-  "title": "ChatGPT Exporter",
-  "title:zh-CN": "ChatGPT Exporter",
-  "title:zh-TW": "ChatGPT Exporter",
+  "title": "ChatGPT Exporter Sync",
+  "title:zh-CN": "ChatGPT Exporter Sync",
+  "title:zh-TW": "ChatGPT Exporter Sync",
   "description": "Easily export the whole ChatGPT conversation history for further analysis or sharing.",
   "description:zh-CN": "轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。",
   "description:zh-TW": "輕鬆匯出 ChatGPT 聊天紀錄，以便進一步分析或分享。",
-  "author": "pionxzh",
+  "author": "ziuch",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

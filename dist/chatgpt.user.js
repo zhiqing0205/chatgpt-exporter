@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name               ChatGPT Exporter
-// @name:zh-CN         ChatGPT Exporter
-// @name:zh-TW         ChatGPT Exporter
-// @namespace          pionxzh
+// @name               ChatGPT Exporter Sync
+// @name:zh-CN         ChatGPT Exporter Sync
+// @name:zh-TW         ChatGPT Exporter Sync
+// @namespace          ziuch
 // @version            2.31.0
-// @author             pionxzh
+// @author             ziuch
 // @description        Easily export the whole ChatGPT conversation history for further analysis or sharing.
 // @description:zh-CN  轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。
 // @description:zh-TW  輕鬆匯出 ChatGPT 聊天紀錄，以便進一步分析或分享。
