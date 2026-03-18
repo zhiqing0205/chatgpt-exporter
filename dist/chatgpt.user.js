@@ -3,7 +3,7 @@
 // @name:zh-CN         ChatGPT Exporter Sync
 // @name:zh-TW         ChatGPT Exporter Sync
 // @namespace          ziuch
-// @version            2.32.0
+// @version            2.32.1
 // @author             ziuch
 // @description        Easily export the whole ChatGPT conversation history for further analysis or sharing.
 // @description:zh-CN  轻松导出 ChatGPT 聊天记录，以便进一步分析或分享。
@@ -22218,26 +22218,44 @@ ${content2}`;
   }
   function gmFetch(options) {
     return new Promise((resolve, reject) => {
-      _GM_xmlhttpRequest({
-        method: options.method,
-        url: options.url,
-        headers: options.headers,
-        data: options.data,
-        responseType: "text",
-        onload: (response) => {
-          resolve({
-            status: response.status,
-            statusText: response.statusText,
-            responseText: response.responseText
-          });
-        },
-        onerror: (error2) => {
-          reject(new Error(`Network error: ${error2.statusText || "Request failed"}`));
-        },
-        ontimeout: () => {
-          reject(new Error("Request timed out"));
-        }
-      });
+      console.log(`[Exporter] gmFetch ${options.method} ${options.url}`);
+      try {
+        _GM_xmlhttpRequest({
+          method: options.method,
+          url: options.url,
+          headers: options.headers,
+          data: options.data,
+          responseType: "text",
+          onload: (response) => {
+            console.log(`[Exporter] gmFetch response: ${response.status} ${response.statusText} from ${response.finalUrl || options.url}`);
+            resolve({
+              status: response.status,
+              statusText: response.statusText,
+              responseText: response.responseText,
+              finalUrl: response.finalUrl || options.url
+            });
+          },
+          onerror: (error2) => {
+            const detail = [
+              `method=${options.method}`,
+              `url=${options.url}`,
+              `status=${error2.status ?? "N/A"}`,
+              `statusText=${error2.statusText || "N/A"}`,
+              `finalUrl=${error2.finalUrl || "N/A"}`,
+              `responseText=${(error2.responseText || "").slice(0, 200)}`
+            ].join(", ");
+            console.error(`[Exporter] gmFetch onerror: ${detail}`);
+            reject(new Error(`Network error [${options.method} ${new URL(options.url).host}]: ${error2.statusText || error2.responseText || "Connection failed. Check if the URL is correct and accessible."}`.trim()));
+          },
+          ontimeout: () => {
+            console.error(`[Exporter] gmFetch timeout: ${options.method} ${options.url}`);
+            reject(new Error(`Request timed out [${options.method} ${new URL(options.url).host}]`));
+          }
+        });
+      } catch (err) {
+        console.error("[Exporter] GM_xmlhttpRequest threw:", err);
+        reject(new Error(`GM_xmlhttpRequest unavailable: ${err instanceof Error ? err.message : String(err)}`));
+      }
     });
   }
   async function sha256(data) {
@@ -22262,7 +22280,12 @@ ${content2}`;
   }
   async function uploadToS3(config, data, objectKey) {
     const { endpoint, region, bucket, accessKey, secretKey } = config;
-    const url = new URL(endpoint);
+    let url;
+    try {
+      url = new URL(endpoint);
+    } catch {
+      throw new Error(`Invalid S3 endpoint URL: ${endpoint}`);
+    }
     const path2 = `/${bucket}/${objectKey}`;
     const fullUrl = `${url.protocol}//${url.host}${path2}`;
     const now = /* @__PURE__ */ new Date();
@@ -22341,17 +22364,22 @@ ${content2}`;
     await ensureDirectory(config);
     const uploadPath = config.pathPrefix ? `${config.pathPrefix.replace(/\/+$/, "")}/${fileName}` : fileName;
     const uploadUrl = joinUrl(config.url, uploadPath);
-    const response = await gmFetch({
-      method: "PUT",
-      url: uploadUrl,
-      headers: {
-        "Authorization": basicAuth(config.username, config.password),
-        "Content-Type": "application/zip"
-      },
-      data
-    });
+    let response;
+    try {
+      response = await gmFetch({
+        method: "PUT",
+        url: uploadUrl,
+        headers: {
+          "Authorization": basicAuth(config.username, config.password),
+          "Content-Type": "application/zip"
+        },
+        data
+      });
+    } catch (err) {
+      throw new Error(`WebDAV PUT to ${uploadUrl} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
     if (response.status < 200 || response.status >= 300) {
-      throw new Error(`WebDAV upload failed: ${response.status} ${response.statusText} - ${response.responseText}`);
+      throw new Error(`WebDAV upload failed [${response.status}]: ${response.statusText} - ${response.responseText.slice(0, 300)}`);
     }
   }
   function getExportFunction(backupFormat) {
@@ -22399,21 +22427,30 @@ ${content2}`;
   }
   async function backupToRemote(blob, config) {
     try {
+      console.log(`[Exporter] Starting backup: method=${config.method}, blobSize=${blob.size}`);
       const data = await blob.arrayBuffer();
+      console.log("[Exporter] Blob converted to ArrayBuffer");
       const workspaceName = await getCurrentWorkspaceName();
       const safeName = normalizeWorkspaceName(workspaceName);
       const fileName = `ChatGPT-backup-${safeName}-${timestamp()}.zip`;
+      console.log(`[Exporter] Backup filename: ${fileName}`);
       if (config.method === "S3") {
         const objectKey = config.pathPrefix ? `${config.pathPrefix.replace(/\/+$/, "")}/${fileName}` : fileName;
+        console.log(`[Exporter] Uploading to S3: endpoint=${config.endpoint}, bucket=${config.bucket}, key=${objectKey}`);
         await uploadToS3(config, data, objectKey);
       } else {
+        const targetUrl = `${config.url}${config.pathPrefix ? `/${config.pathPrefix}` : ""}/${fileName}`;
+        console.log(`[Exporter] Uploading to WebDAV: ${targetUrl}`);
         await uploadToWebDAV(config, data, fileName);
       }
+      console.log("[Exporter] Backup upload successful");
       return { success: true };
     } catch (error2) {
+      const message = error2 instanceof Error ? error2.message : String(error2);
+      console.error("[Exporter] Backup failed:", message);
       return {
         success: false,
-        error: error2 instanceof Error ? error2.message : String(error2)
+        error: message
       };
     }
   }
