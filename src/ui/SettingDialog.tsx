@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import { useCallback, useState } from 'preact/hooks'
 import { useTranslation } from 'react-i18next'
 import sanitize from 'sanitize-filename'
 import { baseUrl } from '../constants'
@@ -6,14 +7,65 @@ import { useTitle } from '../hooks/useTitle'
 import { LOCALES } from '../i18n'
 import { getChatIdFromUrl } from '../page'
 import { getFileNameWithFormat } from '../utils/download'
+import { testS3Connection } from '../utils/s3'
 import { timestamp as _timestamp, dateStr, unixTimestampToISOString } from '../utils/utils'
+import { testWebDAVConnection } from '../utils/webdav'
 import { IconCross, IconTrash } from './Icons'
 import { useSettingContext } from './SettingContext'
 import { Toggle } from './Toggle'
 import type { FC } from '../type'
+import type { S3Config } from '../utils/s3'
+import type { WebDAVConfig } from '../utils/webdav'
 
 function Variable({ name, title }: { name: string; title: string }) {
     return <strong className="cursor-help select-all whitespace-nowrap" title={title}>{name}</strong>
+}
+
+function TestConnectionButton({ backupMethod, s3Config, webdavConfig }: {
+    backupMethod: 'S3' | 'WebDAV'
+    s3Config: S3Config
+    webdavConfig: WebDAVConfig
+}) {
+    const { t } = useTranslation()
+    const [testing, setTesting] = useState(false)
+    const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+
+    const onTest = useCallback(async () => {
+        setTesting(true)
+        setResult(null)
+        try {
+            const res = backupMethod === 'S3'
+                ? await testS3Connection(s3Config)
+                : await testWebDAVConnection(webdavConfig)
+            setResult(res)
+        }
+        catch (err) {
+            setResult({ success: false, message: err instanceof Error ? err.message : String(err) })
+        }
+        finally {
+            setTesting(false)
+        }
+    }, [backupMethod, s3Config, webdavConfig])
+
+    return (
+        <div className="mt-3 flex items-center gap-3">
+            <button
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                disabled={testing}
+                onClick={onTest}
+            >
+                {testing ? t('Testing...') : t('Test Connection')}
+            </button>
+            {result && (
+                <span
+                    className="text-sm"
+                    style={{ color: result.success ? '#16a34a' : '#dc2626' }}
+                >
+                    {result.message}
+                </span>
+            )}
+        </div>
+    )
 }
 
 interface SettingDialogProps {
@@ -325,6 +377,12 @@ export const SettingDialog: FC<SettingDialogProps> = ({
                                                     <input className="Input" placeholder={t('Path Prefix')} value={webdavPathPrefix} onChange={e => setWebdavPathPrefix(e.currentTarget.value)} />
                                                 </div>
                                             </div>
+
+                                            <TestConnectionButton
+                                                backupMethod={backupMethod}
+                                                s3Config={{ endpoint: s3Endpoint, region: s3Region, bucket: s3Bucket, accessKey: s3AccessKey, secretKey: s3SecretKey, pathPrefix: s3PathPrefix }}
+                                                webdavConfig={{ url: webdavUrl, username: webdavUsername, password: webdavPassword, pathPrefix: webdavPathPrefix }}
+                                            />
                                         </>
                                     )}
                                 </dd>

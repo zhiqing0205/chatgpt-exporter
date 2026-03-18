@@ -71,5 +71,7 @@
   "Backup Success": "Backup successful",
   "Backup Failed": "Backup failed",
   "Backup in progress": "Backing up...",
-  "Please configure remote backup in settings": "Please configure remote backup in settings"
+  "Please configure remote backup in settings": "Please configure remote backup in settings",
+  "Test Connection": "Test Connection",
+  "Testing...": "Testing..."
 }
