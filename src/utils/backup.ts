@@ -102,27 +102,41 @@ export async function backupToRemote(
     config: BackupConfig,
 ): Promise<BackupResult> {
     try {
+        /* eslint-disable no-console */
+        console.log(`[Exporter] Starting backup: method=${config.method}, blobSize=${blob.size}`)
+
         const data = await blob.arrayBuffer()
+        console.log('[Exporter] Blob converted to ArrayBuffer')
+
         const workspaceName = await getCurrentWorkspaceName()
         const safeName = normalizeWorkspaceName(workspaceName)
         const fileName = `ChatGPT-backup-${safeName}-${timestamp()}.zip`
+        console.log(`[Exporter] Backup filename: ${fileName}`)
 
         if (config.method === 'S3') {
             const objectKey = config.pathPrefix
                 ? `${config.pathPrefix.replace(/\/+$/, '')}/${fileName}`
                 : fileName
+            console.log(`[Exporter] Uploading to S3: endpoint=${config.endpoint}, bucket=${config.bucket}, key=${objectKey}`)
             await uploadToS3(config, data, objectKey)
         }
         else {
+            const targetUrl = `${config.url}${config.pathPrefix ? `/${config.pathPrefix}` : ''}/${fileName}`
+            console.log(`[Exporter] Uploading to WebDAV: ${targetUrl}`)
             await uploadToWebDAV(config, data, fileName)
         }
 
+        console.log('[Exporter] Backup upload successful')
+        /* eslint-enable no-console */
         return { success: true }
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
+        console.error('[Exporter] Backup failed:', message)
         return {
             success: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: message,
         }
     }
 }

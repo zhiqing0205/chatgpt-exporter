@@ -47,17 +47,23 @@ export async function uploadToWebDAV(config: WebDAVConfig, data: ArrayBuffer, fi
         : fileName
     const uploadUrl = joinUrl(config.url, uploadPath)
 
-    const response = await gmFetch({
-        method: 'PUT',
-        url: uploadUrl,
-        headers: {
-            'Authorization': basicAuth(config.username, config.password),
-            'Content-Type': 'application/zip',
-        },
-        data,
-    })
+    let response
+    try {
+        response = await gmFetch({
+            method: 'PUT',
+            url: uploadUrl,
+            headers: {
+                'Authorization': basicAuth(config.username, config.password),
+                'Content-Type': 'application/zip',
+            },
+            data,
+        })
+    }
+    catch (err) {
+        throw new Error(`WebDAV PUT to ${uploadUrl} failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
 
     if (response.status < 200 || response.status >= 300) {
-        throw new Error(`WebDAV upload failed: ${response.status} ${response.statusText} - ${response.responseText}`)
+        throw new Error(`WebDAV upload failed [${response.status}]: ${response.statusText} - ${response.responseText.slice(0, 300)}`)
     }
 }

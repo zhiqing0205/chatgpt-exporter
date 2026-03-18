@@ -37,7 +37,13 @@ function toHex(buffer: ArrayBuffer): string {
 export async function uploadToS3(config: S3Config, data: ArrayBuffer, objectKey: string): Promise<void> {
     const { endpoint, region, bucket, accessKey, secretKey } = config
 
-    const url = new URL(endpoint)
+    let url: URL
+    try {
+        url = new URL(endpoint)
+    }
+    catch {
+        throw new Error(`Invalid S3 endpoint URL: ${endpoint}`)
+    }
     const path = `/${bucket}/${objectKey}`
     const fullUrl = `${url.protocol}//${url.host}${path}`
 
